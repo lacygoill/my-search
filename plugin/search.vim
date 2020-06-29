@@ -72,7 +72,7 @@ nmap <expr><unique> gD search#wrap_gd(0)
 nmap <expr><unique> n search#wrap_n(1)
 nmap <expr><unique> N search#wrap_n(0)
 
-" Star &friends {{{2
+" Star & friends {{{2
 
 " By default,  you can search automatically  for the word under  the cursor with
 " `*` or `#`. But you can't do the same for the text visually selected.
@@ -121,8 +121,8 @@ xmap g* *
 
 nno <expr> <plug>(ms_restore_unnamed_register) search#restore_unnamed_register()
 
-" This mapping  is used in `search#wrap_star()` to reenable  our autocmd after a
-" search via star &friends.
+" This mapping is  used in `search#wrap_star()` to reenable our  autocmd after a
+" search via star & friends.
 nno <expr> <plug>(ms_re-enable_after_slash) search#after_slash_status('delete')
 
 nno <expr> <plug>(ms_view) search#view()
@@ -177,7 +177,7 @@ nno <expr> <plug>(ms_index) search#index()
 
 " Regroup all customizations behind `<plug>(ms_custom)`
 "                             ┌ install a one-shot autocmd to disable 'hls' when we move
-"                             │               ┌ unfold if needed, restore the view after `*` &friends
+"                             │               ┌ unfold if needed, restore the view after `*` & friends
 "                             │               │
 nmap <plug>(ms_custom) <plug>(ms_nohls)<plug>(ms_view)<plug>(ms_blink)<plug>(ms_index)
 "                                                            │               │

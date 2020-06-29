@@ -40,7 +40,7 @@ fu search#hls_after_slash() abort "{{{1
     call search#toggle_hls('restore')
     " don't enable `'hls'` when this function is called because the command-line
     " was entered from the rhs of a mapping (especially useful for `/ Up CR C-o`)
-    if getcmdline() is# '' || state('m') != ''
+    if getcmdline() is# '' || state() =~# 'm'
         return
     endif
     call search#set_hls()
@@ -347,7 +347,7 @@ endfu
 
 fu search#view() abort "{{{1
 " make a nice view, by opening folds if any, and by restoring the view if
-" it changed but we wanted to stay where we were (happens with `*` and friends)
+" it changed but we wanted to stay where we were (happens with `*` & friends)
 
     let seq = foldclosed('.') != -1 ? 'zMzv' : ''
 
@@ -358,7 +358,7 @@ fu search#view() abort "{{{1
     " Note:
     "
     " The goal of `s:windiff` is to restore the state of the window after we
-    " search with `*` and friends.
+    " search with `*` & friends.
     "
     " When we hit `*`, the rhs is evaluated into the output of `search#wrap_star()`.
     " During the evaluation, the variable `s:winline` is set.
