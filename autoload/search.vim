@@ -59,6 +59,11 @@ fu search#hls_after_slash() abort "{{{1
     " Because we haven't performed the search yet.
     " `CmdlineLeave` is fired just before.
     "}}}
+    "   Why not a one-shot autocmd listening to `SafeState`?{{{
+    "
+    " Too early.  If the match is beyond the current screen, Vim will redraw the
+    " latter, and – in the process – erase the message.
+    "}}}
     " Do *not* move `feedkeys()` outside the timer!{{{
     "
     " It could trigger a hit-enter prompt.
@@ -82,7 +87,7 @@ fu search#hls_after_slash() abort "{{{1
     call timer_start(0, {->
         \ v:errmsg[:4] is# 'E486:'
         \   ? search#nohls(1)
-        \   : mode() =~# '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : ''})
+        \   : mode() =~# '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
 endfu
 
 fu search#index() abort "{{{1
@@ -101,14 +106,14 @@ fu search#index() abort "{{{1
     if incomplete == 0
         " `printf()`  adds a  padding  of  spaces to  prevent  the pattern  from
         " "dancing" when cycling through many matches by smashing `n`
-        let msg = '['..printf('%*d', len(total), current)..'/'..total..'] '..pat
+        let msg = printf('[%*d/%d] %s', len(total), current, total, pat)
     elseif incomplete == 1 " recomputing took too much time
-        let msg = '[?/?] '..pat
+        let msg = printf('[?/??] %s', pat)
     elseif incomplete == 2 " too many matches
         if result.total == (result.maxcount+1) && result.current <= result.maxcount
-            let msg = '['..printf('%*d', len(total-1), current)..'/>'..(total-1)..'] '..pat
+            let msg = printf('[%*d/>%d] %s', len(total-1), current, total-1, pat)
         else
-            let msg = '[>'..printf('%*d', len(total-1), current-1)..'/>'..(total-1)..'] '..pat
+            let msg = printf('[>%*d/>%d] %s', len(total-1), current-1, total-1, pat)
         endif
     endif
 
@@ -129,7 +134,7 @@ fu search#index() abort "{{{1
         "                     │
         "                     └ for the middle '...'
         let [n1, n2] = n%2 ? [n/2, n/2] : [n/2-1, n/2]
-        let msg = join(matchlist(msg, '\(.\{'..n1..'}\).*\(.\{'..n2..'}\)')[1:2], '...')
+        let msg = matchlist(msg, '\(.\{'..n1..'}\).*\(.\{'..n2..'}\)')[1:2]->join('...')
     endif
 
     echo msg
