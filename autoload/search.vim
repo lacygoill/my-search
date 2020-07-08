@@ -90,10 +90,18 @@ fu search#hls_after_slash() abort "{{{1
         \   : mode() =~# '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
 endfu
 
-fu search#index() abort "{{{1
+def search#index(): string "{{{1
+    " This function is called frequently, and is potentially costly.
+    " Let's rewrite it in Vim9 script to make it as fast as possible.
+    let incomplete: number
+    let total: number
+    let current: number
+    let result: dict<any>
     try
-        let result = searchcount({'maxcount': s:MAXCOUNT, 'timeout': s:TIMEOUT})
-        let [current, total, incomplete] = [result.current, result.total, result.incomplete]
+        result = searchcount({'maxcount': s:MAXCOUNT, 'timeout': s:TIMEOUT})
+        current = result.current
+        total = result.total
+        incomplete = result.incomplete
     " in case the pattern is invalid (`E54`, `E55`, `E871`, ...)
     catch
         echohl ErrorMsg | echom v:exception | echohl NONE
@@ -102,18 +110,18 @@ fu search#index() abort "{{{1
     let msg = ''
     " we don't want a NUL to be translated into a newline when echo'ed as a string;
     " it would cause an annoying hit-enter prompt
-    let pat = substitute(@/, '\%x00', '^@', 'g')
+    let pat = getreg('/')->substitute('\%x00', '^@', 'g')
     if incomplete == 0
         " `printf()`  adds a  padding  of  spaces to  prevent  the pattern  from
         " "dancing" when cycling through many matches by smashing `n`
-        let msg = printf('[%*d/%d] %s', len(total), current, total, pat)
-    elseif incomplete == 1 " recomputing took too much time
-        let msg = printf('[?/??] %s', pat)
-    elseif incomplete == 2 " too many matches
-        if result.total == (result.maxcount+1) && result.current <= result.maxcount
-            let msg = printf('[%*d/>%d] %s', len(total-1), current, total-1, pat)
+        msg = printf('[%*d/%d] %s', len(total), current, total, pat)
+    elseif incomplete == 1 # recomputing took too much time
+        msg = printf('[?/??] %s', pat)
+    elseif incomplete == 2 # too many matches
+        if result.total == (result.maxcount + 1) && result.current <= result.maxcount
+            msg = printf('[%*d/>%d] %s', len(total - 1), current, total - 1, pat)
         else
-            let msg = printf('[>%*d/>%d] %s', len(total-1), current-1, total-1, pat)
+            msg = printf('[>%*d/>%d] %s', len(total - 1), current - 1, total - 1, pat)
         endif
     endif
 
@@ -125,21 +133,29 @@ fu search#index() abort "{{{1
     "    - truncate the end of the 1st half, and the start of the 2nd one
     "    - join the 2 halves with `...` in the middle
     "}}}
-    if strchars(msg, 1) > (v:echospace + (&cmdheight-1)*&columns)
-    "                      ├─────────┘   ├─────────────────────┘{{{
-    "                      │             └ space available on previous lines of the command-line
+    if strchars(msg, 1) > (v:echospace + (&cmdheight - 1) * &columns)
+    "                      ├─────────┘    ├────────────────────────┘{{{
+    "                      │              └ space available on previous lines of the command-line
     "                      └ space available on last line of the command-line
     "}}}
         let n = v:echospace - 3
         "                     │
         "                     └ for the middle '...'
-        let [n1, n2] = n%2 ? [n/2, n/2] : [n/2-1, n/2]
-        let msg = matchlist(msg, '\(.\{'..n1..'}\).*\(.\{'..n2..'}\)')[1:2]->join('...')
+        let n1 = n % 2 ? n / 2 : n / 2 - 1
+        let n2 = n / 2
+        " TODO: Once Vim supports list slicing, rewrite the next 2 lines like this:{{{
+        "
+        "     msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1:2]->join('...')
+        "
+        " See: https://github.com/vim/vim/issues/6393#issuecomment-653903176
+        "}}}
+        let matchlist = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')
+        msg = matchlist[1] .. '...' .. matchlist[2]
     endif
 
     echo msg
     return ''
-endfu
+enddef
 
 fu search#nohls(...) abort "{{{1
     augroup my_search | au!
@@ -422,9 +438,9 @@ fu search#wrap_n(is_fwd) abort "{{{1
     let seq = (a:is_fwd ? 'Nn' : 'nN')[v:searchforward]
 
     " If  we toggle  the key  (`n` to  `N` or  `N` to  `n`), when  we perform  a
-    " backward search we have the error:
+    " backward search `E323` is raised:
     "
-    "     E223: recursive mapping
+    "     E223: recursive mapping~
     "
     " Why? Because we are stuck going back and forth between 2 mappings:
     "
@@ -449,7 +465,7 @@ fu search#wrap_n(is_fwd) abort "{{{1
     "
     " Therefore, here, Vim  types `n` immediately, *before*  processing the rest
     " of the mapping.
-    " This explains  why Vim *first* moves  the cursor with n,  *then* makes the
+    " This explains why Vim *first* moves  the cursor with `n`, *then* makes the
     " current position blink.
     " If  Vim expanded  everything before  even beginning  typing, the  blinking
     " would occur at the current position, instead of the next match.
