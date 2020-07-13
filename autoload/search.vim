@@ -438,7 +438,7 @@ fu search#wrap_n(is_fwd) abort "{{{1
     let seq = (a:is_fwd ? 'Nn' : 'nN')[v:searchforward]
 
     " If  we toggle  the key  (`n` to  `N` or  `N` to  `n`), when  we perform  a
-    " backward search `E323` is raised:
+    " backward search `E223` is raised:
     "
     "     E223: recursive mapping~
     "
