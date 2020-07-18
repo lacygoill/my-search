@@ -91,8 +91,8 @@ fu search#hls_after_slash() abort "{{{1
 endfu
 
 def search#index(): string "{{{1
-    " This function is called frequently, and is potentially costly.
-    " Let's rewrite it in Vim9 script to make it as fast as possible.
+    # This function is called frequently, and is potentially costly.
+    # Let's rewrite it in Vim9 script to make it as fast as possible.
     let incomplete: number
     let total: number
     let current: number
@@ -102,18 +102,18 @@ def search#index(): string "{{{1
         current = result.current
         total = result.total
         incomplete = result.incomplete
-    " in case the pattern is invalid (`E54`, `E55`, `E871`, ...)
+    # in case the pattern is invalid (`E54`, `E55`, `E871`, ...)
     catch
         echohl ErrorMsg | echom v:exception | echohl NONE
         return ''
     endtry
     let msg = ''
-    " we don't want a NUL to be translated into a newline when echo'ed as a string;
-    " it would cause an annoying hit-enter prompt
+    # we don't want a NUL to be translated into a newline when echo'ed as a string;
+    # it would cause an annoying hit-enter prompt
     let pat = getreg('/')->substitute('\%x00', '^@', 'g')
     if incomplete == 0
-        " `printf()`  adds a  padding  of  spaces to  prevent  the pattern  from
-        " "dancing" when cycling through many matches by smashing `n`
+        # `printf()`  adds a  padding  of  spaces to  prevent  the pattern  from
+        # "dancing" when cycling through many matches by smashing `n`
         msg = printf('[%*d/%d] %s', len(total), current, total, pat)
     elseif incomplete == 1 # recomputing took too much time
         msg = printf('[?/??] %s', pat)
@@ -125,30 +125,30 @@ def search#index(): string "{{{1
         endif
     endif
 
-    " We don't want a hit-enter prompt when the message is too long.{{{
-    "
-    " Let's emulate what Vim does by default:
-    "
-    "    - cut the message in 2 halves
-    "    - truncate the end of the 1st half, and the start of the 2nd one
-    "    - join the 2 halves with `...` in the middle
-    "}}}
+    # We don't want a hit-enter prompt when the message is too long.{{{
+    #
+    # Let's emulate what Vim does by default:
+    #
+    #    - cut the message in 2 halves
+    #    - truncate the end of the 1st half, and the start of the 2nd one
+    #    - join the 2 halves with `...` in the middle
+    #}}}
     if strchars(msg, 1) > (v:echospace + (&cmdheight - 1) * &columns)
-    "                      ├─────────┘    ├────────────────────────┘{{{
-    "                      │              └ space available on previous lines of the command-line
-    "                      └ space available on last line of the command-line
-    "}}}
+    #                      ├─────────┘    ├────────────────────────┘{{{
+    #                      │              └ space available on previous lines of the command-line
+    #                      └ space available on last line of the command-line
+    #}}}
         let n = v:echospace - 3
-        "                     │
-        "                     └ for the middle '...'
+        #                     │
+        #                     └ for the middle '...'
         let n1 = n % 2 ? n / 2 : n / 2 - 1
         let n2 = n / 2
-        " TODO: Once Vim supports list slicing, rewrite the next 2 lines like this:{{{
-        "
-        "     msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1:2]->join('...')
-        "
-        " See: https://github.com/vim/vim/issues/6393#issuecomment-653903176
-        "}}}
+        # TODO: Once Vim9 supports list slicing, rewrite the next 2 lines like this:{{{
+        #
+        #     msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1:2]->join('...')
+        #
+        # See: https://github.com/vim/vim/issues/6393#issuecomment-653903176
+        #}}}
         let matchlist = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')
         msg = matchlist[1] .. '...' .. matchlist[2]
     endif
