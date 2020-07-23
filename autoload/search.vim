@@ -3,6 +3,61 @@ if exists('g:autoloaded_search')
 endif
 let g:autoloaded_search = 1
 
+" TODO: refactor the whole plugin in Vim9 script{{{
+"
+" Issue: Refactoring `search#blink()` is tricky:
+"
+"     def search#blink(): string
+"         s:blink.ticks = 4
+"         s:blink.delay = 50
+"
+"         call s:blink.delete()
+"         call s:blink.tick(0)
+"         return ''
+"     enddef
+"
+"     Error detected while processing function search#blink:~
+"     line    1:~
+"     Not supported yet: s:blink.ticks = 4~
+"
+"     def search#blink(): string
+"         s:blink['ticks'] = 4
+"         s:blink['delay'] = 50
+"
+"         call s:blink.delete()
+"         call s:blink.tick(0)
+"         return ''
+"     enddef
+"
+"     Error detected while processing function search#blink:~
+"     line    1:~
+"     E1088: cannot use an index on s:blink~
+"
+" MWE:
+"
+"     vim9script
+"     def Func()
+"         let d = {}
+"         d.key = 0
+"     enddef
+"     Func()
+"
+"     Error detected while processing function <SNR>1_Func:~
+"     line    1:~
+"     Not supported yet: d.key = 0~
+"
+"     vim9script
+"     def Func()
+"         g:d['key'] = 0
+"     enddef
+"     g:d = {}
+"     Func()
+"
+"     Error detected while processing function <SNR>1_Func:~
+"     line    1:~
+"     E1088: cannot use an index on g:d~
+"}}}
+
 fu search#blink() abort "{{{1
     " every time `search#blink()` is called, we  must reset the keys `ticks` and
     " `delay` in the dictionary `s:blink`
@@ -90,7 +145,7 @@ fu search#hls_after_slash() abort "{{{1
         \   : mode() =~# '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
 endfu
 
-def search#index(): string "{{{1
+def search#index(): string # {{{1
     # This function is called frequently, and is potentially costly.
     # Let's rewrite it in Vim9 script to make it as fast as possible.
     let incomplete: number
