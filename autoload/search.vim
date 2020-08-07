@@ -36,26 +36,13 @@ let g:autoloaded_search = 1
 " MWE:
 "
 "     vim9script
+"     let s:d = {}
 "     def Func()
-"         let d = {}
-"         d.key = 0
+"         s:d.key = 0
 "     enddef
 "     Func()
 "
-"     Error detected while processing function <SNR>1_Func:~
-"     line    1:~
-"     Not supported yet: d.key = 0~
-"
-"     vim9script
-"     def Func()
-"         g:d['key'] = 0
-"     enddef
-"     g:d = {}
-"     Func()
-"
-"     Error detected while processing function <SNR>1_Func:~
-"     line    1:~
-"     E1088: cannot use an index on g:d~
+"     Not supported yet: s:d.key = 0~
 "}}}
 
 fu search#blink() abort "{{{1
@@ -82,20 +69,20 @@ endfu
 
 fu search#escape(is_fwd) abort "{{{1
     let unnamed = getreg('"', 1, 1)
-    call map(unnamed, {_,v -> escape(v, '\'..(a:is_fwd ? '/' : '?'))})
+    call map(unnamed, {_, v -> escape(v, '\' .. (a:is_fwd ? '/' : '?'))})
     if len(unnamed) == 1
         let pat = unnamed[0]
     else
-        let pat = unnamed->join('\n')
+        let pat = join(unnamed, '\n')
     endif
-    return '\V'..pat
+    return '\V' .. pat
 endfu
 
 fu search#hls_after_slash() abort "{{{1
     call search#toggle_hls('restore')
     " don't enable `'hls'` when this function is called because the command-line
     " was entered from the rhs of a mapping (especially useful for `/ Up CR C-o`)
-    if getcmdline() is# '' || state() =~# 'm'
+    if getcmdline() == '' || state() =~# 'm'
         return
     endif
     call search#set_hls()
@@ -145,7 +132,7 @@ fu search#hls_after_slash() abort "{{{1
         \   : mode() =~# '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
 endfu
 
-def search#index(): string # {{{1
+def search#index(): string #{{{1
     # This function is called frequently, and is potentially costly.
     # Let's rewrite it in Vim9 script to make it as fast as possible.
     let incomplete: number
@@ -340,19 +327,19 @@ fu s:tick(_) abort dict "{{{1
     "  │                 │       ┌ the blinking is still active
     "  │                 │       │
     if !self.delete() && &hls && active
-        "                                1 list describing 1 “position”;              ┐
-        "                               `matchaddpos()` can accept up to 8 positions; │
-        "                                each position can match:                     │
-        "                                                                             │
-        "                                    - a whole line                           │
-        "                                    - a part of a line                       │
-        "                                    - a character                            │
-        "                                                                             │
-        "                                The column index starts from 1,              │
-        "                                like with `col()`. Not from 0.               │
-        "                                                                             │
-        "                                          ┌──────────────────────────────────┤
-        let w:blink_id = matchaddpos('IncSearch', [[line('.'), max([1, col('.')-3]), 6]])
+        "                                1 list describing 1 “position”;                ┐
+        "                                 `matchaddpos()` can accept up to 8 positions; │
+        "                                each position can match:                       │
+        "                                                                               │
+        "                                    - a whole line                             │
+        "                                    - a part of a line                         │
+        "                                    - a character                              │
+        "                                                                               │
+        "                                The column index starts from 1,                │
+        "                                like with `col()`.  Not from 0.                │
+        "                                                                               │
+        "                                          ┌────────────────────────────────────┤
+        let w:blink_id = matchaddpos('IncSearch', [[line('.'), max([1, col('.') - 3]), 6]])
         "                                           │          │                     │
         "                                           │          │                     └ with a length of 6 bytes
         "                                           │          └ begin 3 bytes before cursor
@@ -415,7 +402,7 @@ fu search#toggle_hls(action) abort "{{{1
         set hls
     elseif a:action is# 'restore'
         if exists('s:hls_on')
-            exe 'set '..(s:hls_on ? '' : 'no')..'hls'
+            exe 'set ' .. (s:hls_on ? '' : 'no') .. 'hls'
             unlet! s:hls_on
         endif
     endif
@@ -468,10 +455,10 @@ fu search#view() abort "{{{1
         " prefix the key with the right count (± `windiff`).
 
         let seq ..= windiff > 0
-               \ ?     windiff.."\<c-e>"
-               \ : windiff < 0
-               \ ?     -windiff.."\<c-y>"
-               \ :     ''
+            \ ?     windiff .. "\<c-e>"
+            \ : windiff < 0
+            \ ?     -windiff .. "\<c-y>"
+            \ :     ''
     endif
 
     return seq
@@ -482,14 +469,14 @@ fu search#wrap_gd(is_fwd) abort "{{{1
     " If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
     " still not disabled.
     call timer_start(0, {-> search#nohls()})
-    return (a:is_fwd ? 'gd' : 'gD').."\<plug>(ms_custom)"
+    return (a:is_fwd ? 'gd' : 'gD') .. "\<plug>(ms_custom)"
 endfu
 
 fu search#wrap_n(is_fwd) abort "{{{1
     call search#set_hls()
 
     " We want `n`  and `N` to move  consistently no matter the  direction of the
-    " search `/`, or `?`. Toggle the key `n`/`N` if necessary.
+    " search `/`, or `?`.  Toggle the key `n`/`N` if necessary.
     let seq = (a:is_fwd ? 'Nn' : 'nN')[v:searchforward]
 
     " If  we toggle  the key  (`n` to  `N` or  `N` to  `n`), when  we perform  a
@@ -509,7 +496,7 @@ fu search#wrap_n(is_fwd) abort "{{{1
 
     call timer_start(0, {-> v:errmsg[:4] is# 'E486:' ? search#nohls(1) : ''})
 
-    return seq.."\<plug>(ms_custom)"
+    return seq .. "\<plug>(ms_custom)"
 
     " Vim doesn't wait for everything to be expanded, before beginning typing.
     " As soon as it finds something which can't be remapped, it types it.
@@ -565,8 +552,8 @@ fu search#wrap_star(seq) abort "{{{1
         "}}}
     endif
 
-    " `winline()` returns the position of the current line from the top line of
-    " the window. The position / index of the latter is 1.
+    " `winline()` returns the position of the  current line from the top line of
+    " the window.  The position / index of the latter is 1.
     let s:winline = winline()
 
     call search#set_hls()
@@ -590,7 +577,7 @@ fu search#wrap_star(seq) abort "{{{1
     "
     " Now, search  for `foo`: the highlighting  stays active even after  we move
     " the  cursor (✘).  Press `n`,  then move  the cursor:  the highlighting  is
-    " disabled (✔). Now, search for `foo` again: the highlighting is not enabled
+    " disabled (✔).  Now, search for `foo` again: the highlighting is not enabled
     " (✘).
     "}}}
     call timer_start(0, {-> v:errmsg[:4] =~# 'E34[89]:\|E486'
@@ -612,9 +599,9 @@ fu search#wrap_star(seq) abort "{{{1
     " If it causes an issue, we should test the current mode, and add the
     " keys on the last 2 lines only from normal mode.
     "}}}
-    return seq..(mode() !~# "^[vV\<c-v>]$"
+    return seq .. (mode() !~# "^[vV\<c-v>]$"
         \ ? "\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)\<plug>(ms_prev)" : '')
-        \     .."\<plug>(ms_custom)"
+        \     .. "\<plug>(ms_custom)"
 endfu
 
 " Variables {{{1

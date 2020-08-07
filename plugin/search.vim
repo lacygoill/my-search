@@ -61,9 +61,9 @@ nno <silent> <plug>(ms_prev) :<c-u>call search#restore_cursor_position()<cr>
 "     E486: Pattern not found: garbage
 
 augroup ms_cmdwin | au!
-  au CmdWinEnter * if getcmdwintype() =~ '[/?]'
-               \ |     nmap <buffer><nowait> <cr> <cr><plug>(ms_index)
-               \ | endif
+    au CmdWinEnter * if getcmdwintype() =~ '[/?]'
+        \ |     nmap <buffer><nowait> <cr> <cr><plug>(ms_index)
+        \ | endif
 augroup END
 
 nmap <expr><unique> gd search#wrap_gd(1)
@@ -75,7 +75,7 @@ nmap <expr><unique> N search#wrap_n(0)
 " Star & friends {{{2
 
 " By default,  you can search automatically  for the word under  the cursor with
-" `*` or `#`. But you can't do the same for the text visually selected.
+" `*` or `#`.  But you can't do the same for the text visually selected.
 " The following mappings work  in normal mode, but also in  visual mode, to fill
 " that gap.
 "
@@ -196,7 +196,7 @@ xno <expr> <plug>(ms_custom) search#nohls()
 " ... inserts  a succession of literal  `<plug>(...)` strings in the  buffer, in
 " front of `pattern`.
 " The problem comes from the wrong assumption that after a `/` search, we are in
-" normal mode. We could also be in insert mode.
+" normal mode.  We could also be in insert mode.
 "}}}
 " Why don't you disable `<plug>(ms_nohls)`?{{{
 "
@@ -241,7 +241,7 @@ augroup hoist_noic | au!
     " written in lowercase.
     "}}}
     au User MyFlags call statusline#hoist('global', '%2*%{!&ic? "[noic]" : ""}', 17,
-        \ expand('<sfile>')..':'..expand('<sflnum>'))
+        \ expand('<sfile>') .. ':' .. expand('<sflnum>'))
     au OptionSet ignorecase call timer_start(0, {-> execute('redrawt')})
 augroup END
 
