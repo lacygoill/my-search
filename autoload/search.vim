@@ -3,16 +3,16 @@ if exists('g:autoloaded_search')
 endif
 let g:autoloaded_search = 1
 
-" TODO: refactor the whole plugin in Vim9 script{{{
+" TODO(Vim9): refactor the whole plugin in Vim9 script{{{
 "
-" Issue: Refactoring `search#blink()` is tricky:
+" Problem: Refactoring `search#blink()` is tricky:
 "
 "     def search#blink(): string
 "         s:blink.ticks = 4
 "         s:blink.delay = 50
 "
-"         call s:blink.delete()
-"         call s:blink.tick(0)
+"         s:blink.delete()
+"         s:blink.tick(0)
 "         return ''
 "     enddef
 "
@@ -24,8 +24,8 @@ let g:autoloaded_search = 1
 "         s:blink['ticks'] = 4
 "         s:blink['delay'] = 50
 "
-"         call s:blink.delete()
-"         call s:blink.tick(0)
+"         s:blink.delete()
+"         s:blink.tick(0)
 "         return ''
 "     enddef
 "
@@ -43,6 +43,24 @@ let g:autoloaded_search = 1
 "     Func()
 "
 "     Not supported yet: s:d.key = 0~
+"
+" ---
+"
+" Idea: Use `get()`:
+"
+"     def search#blink(): string
+"         s:blink['ticks'] = 4
+"         s:blink['delay'] = 50
+"         get(s:, 'blink')->get('delete')()
+"         get(s:, 'blink')->get('tick')(0)
+"         return ''
+"     enddef
+"
+" Issue:
+"
+"     E1075: Namespace not supported: s:, 'blink')->get('delete')()
+"
+" We cannot refer to the `s:` dictionary in a `:def` function.
 "}}}
 
 fu search#blink() abort "{{{1
@@ -133,8 +151,8 @@ fu search#hls_after_slash() abort "{{{1
 endfu
 
 def search#index(): string #{{{1
-    # This function is called frequently, and is potentially costly.
-    # Let's rewrite it in Vim9 script to make it as fast as possible.
+# This function is called frequently, and is potentially costly.
+# Let's rewrite it in Vim9 script to make it as fast as possible.
     let incomplete: number
     let total: number
     let current: number
@@ -185,14 +203,7 @@ def search#index(): string #{{{1
         #                     └ for the middle '...'
         let n1 = n % 2 ? n / 2 : n / 2 - 1
         let n2 = n / 2
-        # TODO: Once Vim9 supports list slicing, rewrite the next 2 lines like this:{{{
-        #
-        #     msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1:2]->join('...')
-        #
-        # See: https://github.com/vim/vim/issues/6393#issuecomment-653903176
-        #}}}
-        let matchlist = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')
-        msg = matchlist[1] .. '...' .. matchlist[2]
+        msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1:2]->join('...')
     endif
 
     echo msg
@@ -502,8 +513,8 @@ fu search#wrap_n(is_fwd) abort "{{{1
     " As soon as it finds something which can't be remapped, it types it.
     " And `n` can't be remapped, because of `:h recursive_mapping`:
     "
-    " >     If the {rhs} starts with {lhs}, the first character is not mapped
-    " >     again (this is Vi compatible).
+    "    > If the {rhs} starts with {lhs}, the first character is not mapped
+    "    > again (this is Vi compatible).
     "
     " Therefore, here, Vim  types `n` immediately, *before*  processing the rest
     " of the mapping.
