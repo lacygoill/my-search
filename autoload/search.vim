@@ -351,8 +351,8 @@ fu s:tick(_) abort dict "{{{1
         "                                                                               │
         "                                          ┌────────────────────────────────────┤
         let w:blink_id = matchaddpos('IncSearch', [[line('.'), max([1, col('.') - 3]), 6]])
-        "                                           │          │                     │
-        "                                           │          │                     └ with a length of 6 bytes
+        "                                           │          │                       │
+        "                                           │          │                       └ with a length of 6 bytes
         "                                           │          └ begin 3 bytes before cursor
         "                                           └ on the current line
     endif
