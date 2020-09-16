@@ -241,7 +241,7 @@ augroup hoist_noic | au!
     " written in lowercase.
     "}}}
     au User MyFlags call statusline#hoist('global', '%2*%{!&ic? "[noic]" : ""}', 17,
-        \ expand('<sfile>') .. ':' .. expand('<sflnum>'))
+        \ expand('<sfile>:p') .. ':' .. expand('<sflnum>'))
     au OptionSet ignorecase call timer_start(0, {-> execute('redrawt')})
 augroup END
 

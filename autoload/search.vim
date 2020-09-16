@@ -618,9 +618,9 @@ endfu
 " Variables {{{1
 
 " don't let `searchcount()` search more than this number of matches
-const s:MAXCOUNT = 1000
+const! s:MAXCOUNT = 1000
 " don't let `searchcount()` search for more than this duration (in ms)
-const s:TIMEOUT = 500
+const! s:TIMEOUT = 500
 
 " `s:blink` must be initialized *after* defining the functions
 " `s:tick()` and `s:delete()`.
