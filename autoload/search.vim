@@ -79,7 +79,7 @@ fu s:delete() abort dict "{{{1
     " whether we should create a match.
     if exists('w:blink_id')
         call matchdelete(w:blink_id)
-        unlet w:blink_id
+        unlet! w:blink_id
         return 1
     endif
     return 0
@@ -153,10 +153,10 @@ endfu
 def search#index(): string #{{{1
 # This function is called frequently, and is potentially costly.
 # Let's rewrite it in Vim9 script to make it as fast as possible.
-    let incomplete: number
-    let total: number
-    let current: number
-    let result: dict<any>
+    var incomplete: number
+    var total: number
+    var current: number
+    var result: dict<any>
     try
         result = searchcount({'maxcount': s:MAXCOUNT, 'timeout': s:TIMEOUT})
         current = result.current
@@ -167,10 +167,10 @@ def search#index(): string #{{{1
         echohl ErrorMsg | echom v:exception | echohl NONE
         return ''
     endtry
-    let msg = ''
+    var msg = ''
     # we don't want a NUL to be translated into a newline when echo'ed as a string;
     # it would cause an annoying hit-enter prompt
-    let pat = getreg('/')->substitute('\%x00', '^@', 'g')
+    var pat = getreg('/')->substitute('\%x00', '^@', 'g')
     if incomplete == 0
         # `printf()`  adds a  padding  of  spaces to  prevent  the pattern  from
         # "dancing" when cycling through many matches by smashing `n`
@@ -198,11 +198,11 @@ def search#index(): string #{{{1
     #                      │              └ space available on previous lines of the command-line
     #                      └ space available on last line of the command-line
     #}}}
-        let n = v:echospace - 3
+        var n = v:echospace - 3
         #                     │
         #                     └ for the middle '...'
-        let n1 = n % 2 ? n / 2 : n / 2 - 1
-        let n2 = n / 2
+        var n1 = n % 2 ? n / 2 : n / 2 - 1
+        var n2 = n / 2
         msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1:2]->join('...')
     endif
 
@@ -241,9 +241,9 @@ fu search#nohls_on_leave()
 endfu
 
 fu search#restore_cursor_position() abort "{{{1
-    if exists('s:curpos')
-        call setpos('.', s:curpos)
-        unlet! s:curpos
+    if exists('s:view')
+        call winrestview(s:view)
+        unlet! s:view
     endif
 endfu
 
@@ -456,7 +456,7 @@ fu search#view() abort "{{{1
 
     if exists('s:winline')
         let windiff = winline() - s:winline
-        unlet s:winline
+        unlet! s:winline
 
         " If `windiff` is positive, it means the current line is further away
         " from the top line of the window, than it was originally.
@@ -526,7 +526,12 @@ endfu
 
 fu search#wrap_star(seq) abort "{{{1
     let seq = a:seq
-    let s:curpos = getcurpos()
+    " Why not just saving the cursor position?{{{
+    "
+    " If the next  match starts on a  column far away, saving  and restoring the
+    " cursor position is not enough.  The view will still be altered.
+    "}}}
+    let s:view = winsaveview()
     " if  the function  is invoked  from visual  mode, it  will yank  the visual
     " selection, because  `seq` begins with the  key `y`; in this  case, we save
     " the unnamed register to restore it later
@@ -618,9 +623,9 @@ endfu
 " Variables {{{1
 
 " don't let `searchcount()` search more than this number of matches
-const! s:MAXCOUNT = 1000
+const s:MAXCOUNT = 1000
 " don't let `searchcount()` search for more than this duration (in ms)
-const! s:TIMEOUT = 500
+const s:TIMEOUT = 500
 
 " `s:blink` must be initialized *after* defining the functions
 " `s:tick()` and `s:delete()`.
