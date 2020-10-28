@@ -36,13 +36,13 @@ let g:autoloaded_search = 1
 " MWE:
 "
 "     vim9script
-"     let s:d = {}
+"     var d = {}
 "     def Func()
-"         s:d.key = 0
+"         d.key = 0
 "     enddef
 "     Func()
 "
-"     Not supported yet: s:d.key = 0~
+"     Not supported yet: d.key = 0~
 "
 " ---
 "
