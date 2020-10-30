@@ -153,6 +153,12 @@ endfu
 def search#index(): string #{{{1
 # This function is called frequently, and is potentially costly.
 # Let's rewrite it in Vim9 script to make it as fast as possible.
+
+    # don't make Vim lag when we smash `n` with a slow-to-compute pattern
+    if s:recent_search_was_slow
+        return ''
+    endif
+
     var incomplete: number
     var total: number
     var current: number
@@ -176,6 +182,8 @@ def search#index(): string #{{{1
         # "dancing" when cycling through many matches by smashing `n`
         msg = printf('[%*d/%d] %s', len(total), current, total, pat)
     elseif incomplete == 1 # recomputing took too much time
+        s:recent_search_was_slow = v:true
+        au SafeState * ++once recent_search_was_slow = false
         msg = printf('[?/??] %s', pat)
     elseif incomplete == 2 # too many matches
         if result.total == (result.maxcount + 1) && result.current <= result.maxcount
@@ -209,6 +217,8 @@ def search#index(): string #{{{1
     echo msg
     return ''
 enddef
+
+let s:recent_search_was_slow = v:false
 
 fu search#nohls(...) abort "{{{1
     augroup my_search | au!
