@@ -16,51 +16,14 @@ let g:autoloaded_search = 1
 "         return ''
 "     enddef
 "
-"     Error detected while processing function search#blink:~
-"     line    1:~
-"     Not supported yet: s:blink.ticks = 4~
+"     E725: Calling dict function without Dictionary: <SNR>174_delete~
 "
-"     def search#blink(): string
-"         s:blink['ticks'] = 4
-"         s:blink['delay'] = 50
+" You need to remove the `dict` argument from `fu s:delete()` and `fu s:tick()`.
+" However, if you do so, then you won't be able to refer to `self` anymore.
 "
-"         s:blink.delete()
-"         s:blink.tick(0)
-"         return ''
-"     enddef
-"
-"     Error detected while processing function search#blink:~
-"     line    1:~
-"     E1088: cannot use an index on s:blink~
-"
-" MWE:
-"
-"     vim9script
-"     var d = {}
-"     def Func()
-"         d.key = 0
-"     enddef
-"     Func()
-"
-"     Not supported yet: d.key = 0~
-"
-" ---
-"
-" Idea: Use `get()`:
-"
-"     def search#blink(): string
-"         s:blink['ticks'] = 4
-"         s:blink['delay'] = 50
-"         get(s:, 'blink')->get('delete')()
-"         get(s:, 'blink')->get('tick')(0)
-"         return ''
-"     enddef
-"
-" Issue:
-"
-"     E1075: Namespace not supported: s:, 'blink')->get('delete')()
-"
-" We cannot refer to the `s:` dictionary in a `:def` function.
+" Idea: Get rid  of these dictionary  functions.  Implement a  simpler mechanism
+" which  doesn't  make  the  current   match  blink,  but  simply  highlight  it
+" differently (and permanently).
 "}}}
 
 fu search#blink() abort "{{{1
@@ -70,7 +33,6 @@ fu search#blink() abort "{{{1
 
     call s:blink.delete()
     call s:blink.tick(0)
-    return ''
 endfu
 
 fu s:delete() abort dict "{{{1
@@ -150,19 +112,19 @@ fu search#hls_after_slash() abort "{{{1
         \   : mode() =~# '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
 endfu
 
-def search#index(): string #{{{1
+def search#index() #{{{1
 # This function is called frequently, and is potentially costly.
 # Let's rewrite it in Vim9 script to make it as fast as possible.
 
     # don't make Vim lag when we smash `n` with a slow-to-compute pattern
     if s:recent_search_was_slow
-        return ''
+        return
     endif
 
     var incomplete: number
     var total: number
     var current: number
-    var result: dict<any>
+    var result: dict<number>
     try
         result = searchcount({'maxcount': s:MAXCOUNT, 'timeout': s:TIMEOUT})
         current = result.current
@@ -171,7 +133,7 @@ def search#index(): string #{{{1
     # in case the pattern is invalid (`E54`, `E55`, `E871`, ...)
     catch
         echohl ErrorMsg | echom v:exception | echohl NONE
-        return ''
+        return
     endtry
     var msg = ''
     # we don't want a NUL to be translated into a newline when echo'ed as a string;
@@ -215,7 +177,6 @@ def search#index(): string #{{{1
     endif
 
     echo msg
-    return ''
 enddef
 
 let s:recent_search_was_slow = v:false
@@ -232,7 +193,6 @@ fu search#nohls(...) abort "{{{1
             au CmdlineEnter * exe 'au! my_search' | aug! my_search | set nohls
         endif
     augroup END
-    return ''
 endfu
 
 " nohls_on_leave {{{1
@@ -247,7 +207,6 @@ fu search#nohls_on_leave()
         au InsertLeave * ++once set nohls
     augroup END
     " return an empty string, so that the function doesn't insert anything
-    return ''
 endfu
 
 fu search#restore_cursor_position() abort "{{{1

@@ -42,7 +42,7 @@ cno <plug>(ms_up)    <up>
 nno <plug>(ms_slash) /
 nno <plug>(ms_n)     n
 nno <plug>(ms_N)     N
-nno <silent> <plug>(ms_prev) :<c-u>call search#restore_cursor_position()<cr>
+nno <plug>(ms_prev) <cmd>call search#restore_cursor_position()<cr>
 
 " CR  gd  n {{{2
 
@@ -119,16 +119,10 @@ xmap g* *
 
 " Customizations (blink, index, ...) {{{2
 
-nno <expr> <plug>(ms_restore_unnamed_register) search#restore_unnamed_register()
-
-" This mapping is  used in `search#wrap_star()` to reenable our  autocmd after a
-" search via star & friends.
-nno <expr> <plug>(ms_re-enable_after_slash) search#after_slash_status('delete')
-
+nno <plug>(ms_restore_unnamed_register) <cmd>call search#restore_unnamed_register()<cr>
 nno <expr> <plug>(ms_view) search#view()
-
-nno <expr> <plug>(ms_blink) search#blink()
-nno <expr> <plug>(ms_nohls) search#nohls()
+nno <plug>(ms_blink) <cmd>call search#blink()<cr>
+nno <plug>(ms_nohls) <cmd>call search#nohls()<cr>
 " Why don't you just remove the `S` flag from `'shm'`?{{{
 "
 " Because of 2 limitations.
@@ -173,7 +167,7 @@ nno <expr> <plug>(ms_nohls) search#nohls()
 "    - we can't control *where* to display the info
 "    - we can't control *when* to display the info
 "}}}
-nno <expr> <plug>(ms_index) search#index()
+nno <plug>(ms_index) <cmd>call search#index()<cr>
 
 " Regroup all customizations behind `<plug>(ms_custom)`
 "                             ┌ install a one-shot autocmd to disable 'hls' when we move
@@ -185,7 +179,7 @@ nmap <plug>(ms_custom) <plug>(ms_nohls)<plug>(ms_view)<plug>(ms_blink)<plug>(ms_
 "                                            print `[12/34]` kind of message ┘
 
 " We need this mapping for when we leave the search command-line from visual mode.
-xno <expr> <plug>(ms_custom) search#nohls()
+xno <plug>(ms_custom) <cmd>call search#nohls()<cr>
 
 " Without the next mappings, we face this issue:{{{
 "
@@ -203,10 +197,10 @@ xno <expr> <plug>(ms_custom) search#nohls()
 " Because the  search in  `c /pattern  CR` has  enabled `'hls'`,  so we  need to
 " disable it.
 "}}}
-ino <silent> <plug>(ms_nohls) <c-r>=search#nohls_on_leave()<cr>
-ino          <plug>(ms_index) <nop>
-ino          <plug>(ms_blink) <nop>
-ino          <plug>(ms_view)  <nop>
+ino <plug>(ms_nohls) <cmd>call search#nohls_on_leave()<cr>
+ino <plug>(ms_index) <nop>
+ino <plug>(ms_blink) <nop>
+ino <plug>(ms_view)  <nop>
 " }}}1
 " Options {{{1
 
