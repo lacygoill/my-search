@@ -126,7 +126,7 @@ def search#index() #{{{1
     var current: number
     var result: dict<number>
     try
-        result = searchcount({'maxcount': s:MAXCOUNT, 'timeout': s:TIMEOUT})
+        result = searchcount({maxcount: s:MAXCOUNT, timeout: s:TIMEOUT})
         current = result.current
         total = result.total
         incomplete = result.incomplete
