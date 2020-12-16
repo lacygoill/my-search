@@ -182,15 +182,15 @@ enddef
 let s:recent_search_was_slow = v:false
 
 fu search#nohls(...) abort "{{{1
-    augroup my_search | au!
-        au CursorMoved,CursorMovedI * exe 'au! my_search' | aug! my_search | set nohls
+    augroup MySearch | au!
+        au CursorMoved,CursorMovedI * exe 'au! MySearch' | aug! MySearch | set nohls
         " Necessary when a search fails (`E486`), and we search for another pattern right afterward.{{{
         "
         " Otherwise, if there is no cursor  motion between the two searches, and
         " the second one succeeds, the cursor does not blink.
         "}}}
         if a:0
-            au CmdlineEnter * exe 'au! my_search' | aug! my_search | set nohls
+            au CmdlineEnter * exe 'au! MySearch' | aug! MySearch | set nohls
         endif
     augroup END
 endfu
@@ -203,7 +203,7 @@ endfu
 "
 " `CR` enables `'hls'`, we need to disable it
 fu search#nohls_on_leave()
-    augroup my_search | au!
+    augroup MySearch | au!
         au InsertLeave * ++once set nohls
     augroup END
     " return an empty string, so that the function doesn't insert anything
@@ -234,8 +234,8 @@ fu search#set_hls() abort "{{{1
     " be called several times,  but the condition to install a  hl will never be
     " satisfied (it makes  sure `'hls'` is enabled, to avoid  installing the hl,
     " if the cursor has just moved).  So, no blinking either.
-    sil! au! my_search
-    sil! aug! my_search
+    sil! au! MySearch
+    sil! aug! MySearch
     set hls
 endfu
 

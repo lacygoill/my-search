@@ -60,7 +60,7 @@ nno <plug>(ms_prev) <cmd>call search#restore_cursor_position()<cr>
 "
 "     E486: Pattern not found: garbage
 
-augroup ms_cmdwin | au!
+augroup MsCmdwin | au!
     au CmdWinEnter * if getcmdwintype() =~ '[/?]'
         \ |     nmap <buffer><nowait> <cr> <cr><plug>(ms_index)
         \ | endif
@@ -215,7 +215,7 @@ set incsearch
 
 " Autocmds {{{1
 
-augroup hls_after_slash | au!
+augroup HlsAfterSlash | au!
     " If `'hls'` and `'is'` are set, then *all* matches are highlighted when we're
     " writing a regex.  Not just the next match.  See `:h 'is`.
     " So, we make sure `'hls'` is set when we enter a search command-line.
@@ -225,7 +225,7 @@ augroup hls_after_slash | au!
     au CmdlineLeave /,\? call search#hls_after_slash()
 augroup END
 
-augroup hoist_noic | au!
+augroup HoistNoic | au!
     " Why an indicator for the `'ignorecase'` option?{{{
     "
     " Recently, it  was temporarily  reset by  `$VIMRUNTIME/indent/vim.vim`, but
