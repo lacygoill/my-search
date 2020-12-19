@@ -1,123 +1,181 @@
+vim9script
+
 if exists('g:autoloaded_search')
     finish
 endif
-let g:autoloaded_search = 1
+g:autoloaded_search = 1
 
-" TODO(Vim9): refactor the whole plugin in Vim9 script{{{
-"
-" Problem: Refactoring `search#blink()` is tricky:
-"
-"     def search#blink(): string
-"         s:blink.ticks = 4
-"         s:blink.delay = 50
-"
-"         s:blink.delete()
-"         s:blink.tick(0)
-"         return ''
-"     enddef
-"
-"     E725: Calling dict function without Dictionary: <SNR>174_delete~
-"
-" You need to remove the `dict` argument from `fu s:delete()` and `fu s:tick()`.
-" However, if you do so, then you won't be able to refer to `self` anymore.
-"
-" Idea: Get rid  of these dictionary  functions.  Implement a  simpler mechanism
-" which  doesn't  make  the  current   match  blink,  but  simply  highlight  it
-" differently (and permanently).
-"}}}
+# Config {{{1
 
-fu search#blink() abort "{{{1
-    " every time `search#blink()` is called, we  must reset the keys `ticks` and
-    " `delay` in the dictionary `s:blink`
-    let [s:blink.ticks, s:blink.delay] = [4, 50]
+# don't let `searchcount()` search more than this number of matches
+const MAXCOUNT = 1000
+# don't let `searchcount()` search for more than this duration (in ms)
+const TIMEOUT = 500
 
-    call s:blink.delete()
-    call s:blink.tick(0)
-endfu
+const BLINKWIDTH = 8
+const TICKS = 6
+const TICKDELAY = 50
 
-fu s:delete() abort dict "{{{1
-    " This function has  side effects (it changes  the state of the  buffer), but we
-    " also use it for its output.  In `s:blink.tick()`, we test the latter to decide
-    " whether we should create a match.
-    if exists('w:blink_id')
-        call matchdelete(w:blink_id)
-        unlet! w:blink_id
-        return 1
+# Interface {{{1
+def search#wrapN(is_fwd: bool): string #{{{2
+    search#setHls()
+
+    # We want `n`  and `N` to move  consistently no matter the  direction of the
+    # search `/`, or `?`.  Toggle the key `n`/`N` if necessary.
+    var seq = (is_fwd ? 'Nn' : 'nN')[v:searchforward]
+
+    # If  we toggle  the key  (`n` to  `N` or  `N` to  `n`), when  we perform  a
+    # backward search `E223` is raised:
+    #
+    #     E223: recursive mapping~
+    #
+    # Why? Because we are stuck going back and forth between 2 mappings:
+    #
+    #     echo v:searchforward  →  0
+    #
+    #     hit `n`  →  wrap_n() returns `N`  →  returns `n`  →  returns `N`  →  ...
+    #
+    # To prevent being stuck in an endless expansion, use non-recursive versions
+    # of `n` and `N`.
+    seq = (seq == 'n' ? "\<plug>(ms_n)" : "\<plug>(ms_N)")
+
+    timer_start(0, {-> v:errmsg[:4] == 'E486:' ? search#nohls(true) : ''})
+
+    return seq .. "\<plug>(ms_custom)"
+
+    # Vim doesn't wait for everything to be expanded, before beginning typing.
+    # As soon as it finds something which can't be remapped, it types it.
+    # And `n` can't be remapped, because of `:h recursive_mapping`:
+    #
+    #    > If the {rhs} starts with {lhs}, the first character is not mapped
+    #    > again (this is Vi compatible).
+    #
+    # Therefore, here, Vim  types `n` immediately, *before*  processing the rest
+    # of the mapping.
+    # This explains why Vim *first* moves  the cursor with `n`, *then* makes the
+    # current position blink.
+    # If  Vim expanded  everything before  even beginning  typing, the  blinking
+    # would occur at the current position, instead of the next match.
+enddef
+
+def search#wrapStar(argseq: string): string #{{{2
+    var seq = argseq
+    # Why not just saving the cursor position?{{{
+    #
+    # If the next  match starts on a  column far away, saving  and restoring the
+    # cursor position is not enough.  The view will still be altered.
+    #}}}
+    view = winsaveview()
+    # if  the function  is invoked  from visual  mode, it  will yank  the visual
+    # selection, because  `seq` begins with the  key `y`; in this  case, we save
+    # the unnamed register to restore it later
+    if mode() =~ "^[vV\<c-v>]$"
+        reg_save['"'] = getreginfo('"')
+        reg_save['0'] = getreginfo('0')
+        if seq == '*'
+            # append keys at the end to add some fancy features
+            seq = "y/\<c-r>\<c-r>=search#escape(v:true)"
+            #      ││├───────────┘│ {{{
+            #      │││            │
+            #      │││            └ escape unnamed register
+            #      │││
+            #      ││└ insert an expression
+            #      ││  (literally hence why two C-r;
+            #      ││  this matters, e.g., if the selection is "xxx\<c-\>\<c-n>yyy")
+            #      ││
+            #      │└ search for
+            #      │
+            #      └ copy visual selection
+            #}}}
+        elseif seq == '#'
+            seq = "y?\<c-r>\<c-r>=search#escape(v:false)"
+            #                                   │{{{
+            #           direction of the search ┘
+            #
+            # Necessary to  know which  character among  `[/?]` is  special, and
+            # needs to be escaped.
+            #}}}
+        endif
+        seq ..= "\<plug>(ms_cr)\<plug>(ms_cr)\<plug>(ms_restore_registers)\<plug>(ms_prev)"
+        #        │             │{{{
+        #        │             └ validate search
+        #        └ validate expression
+        #}}}
     endif
-    return 0
-endfu
 
-fu search#escape(is_fwd) abort "{{{1
-    let unnamed = getreg('"', 1, 1)
-    call map(unnamed, {_, v -> escape(v, '\' .. (a:is_fwd ? '/' : '?'))})
-    if len(unnamed) == 1
-        let pat = unnamed[0]
-    else
-        let pat = join(unnamed, '\n')
-    endif
-    return '\V' .. pat
-endfu
+    # `winline()` returns the position of the  current line from the top line of
+    # the window.  The position / index of the latter is 1.
+    winline = winline()
 
-fu search#hls_after_slash() abort "{{{1
-    call search#toggle_hls('restore')
-    " don't enable `'hls'` when this function is called because the command-line
-    " was entered from the rhs of a mapping (especially useful for `/ Up CR C-o`)
-    if getcmdline() == '' || state() =~# 'm'
-        return
-    endif
-    call search#set_hls()
-    " Why `v:errmsg...` ?{{{
-    "
-    " Open 2 windows with 2 buffers A and B.
-    " In A, search for a pattern which has a match in B but not in A.
-    " Move the cursor: the highlighting should be disabled in B, but it's not.
-    " This is because Vim stops processing a mapping as soon as an error occurs:
-    "
-    " https://github.com/junegunn/vim-slash/issues/5
-    " `:h map-error`
-    "}}}
-    " Why the timer?{{{
-    "
-    " Because we haven't performed the search yet.
-    " `CmdlineLeave` is fired just before.
-    "}}}
-    "   Why not a one-shot autocmd listening to `SafeState`?{{{
-    "
-    " Too early.  If the match is beyond the current screen, Vim will redraw the
-    " latter, and – in the process – erase the message.
-    "}}}
-    " Do *not* move `feedkeys()` outside the timer!{{{
-    "
-    " It could trigger a hit-enter prompt.
-    "
-    " If you move it outside the timer,  it will be run unconditionally; even if
-    " the search fails.
-    " And sometimes, when we would search for some pattern which is not matched,
-    " Vim could display 2 messages.  One for the pattern, and one for E486:
-    "
-    "     /garbage
-    "     E486: Pattern not found: garbage~
-    "
-    " This causes a hit-enter prompt, which is annoying/distracting.
-    " The fed keys don't even seem to matter.
-    " It's hard to reproduce; probably a weird Vim bug...
-    "
-    " Anyway,   after  a   failed   search,   there  is   no   reason  to   feed
-    " `<plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
-    " print...  It should be fed only if the pattern was found.
-    "}}}
-    call timer_start(0, {->
-        \ v:errmsg[:4] is# 'E486:'
-        \   ? search#nohls(1)
-        \   : mode() =~# '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
-endfu
+    search#setHls()
 
-def search#index() #{{{1
-# This function is called frequently, and is potentially costly.
-# Let's rewrite it in Vim9 script to make it as fast as possible.
+    # Make sure we're not in a weird state if an error is raised.{{{
+    #
+    # If we press `*` on nothing, it raises `E348` or `E349`, and Vim highlights
+    # the last  search pattern.   But because  of the  error, Vim  didn't finish
+    # processing the mapping.  As a result, the highlighting is not cleared when
+    # we move the cursor.  Make sure it is.
+    #
+    # ---
+    #
+    # Same issue if we press `*` while a block is visually selected:
+    #
+    #     " visually select the block `foo` + `bar`, then press `*`
+    #     foo
+    #     bar
+    #     /\Vfoo\nbar~
+    #     E486: Pattern not found: \Vfoo\nbar~
+    #
+    # Now, search  for `foo`: the highlighting  stays active even after  we move
+    # the  cursor (✘).  Press `n`,  then move  the cursor:  the highlighting  is
+    # disabled (✔).  Now, search for `foo` again: the highlighting is not enabled
+    # (✘).
+    #}}}
+    timer_start(0, {-> v:errmsg[:4] =~ 'E34[89]:\|E486'
+        ?   search#nohls()
+        :   ''})
 
+    # Why `\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)...`?{{{
+    #
+    # By default `*` is stupid, it ignores `'smartcase'`.
+    # To work around this issue, we type this:
+    #
+    #     / Up CR C-o
+    #
+    # It searches for the same pattern than `*` but with `/`.
+    # The latter takes `'smartcase'` into account.
+    #
+    # In visual mode, we already do this, so, it's not necessary from there.
+    # But we let the function do it again anyway, because it doesn't cause any issue.
+    # If it causes an issue, we should test the current mode, and add the
+    # keys on the last 2 lines only from normal mode.
+    #}}}
+    return seq .. (mode() !~ "^[vV\<c-v>]$"
+        ? "\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)\<plug>(ms_prev)" : '')
+            .. "\<plug>(ms_custom)"
+enddef
+
+var view: dict<number>
+var reg_save: dict<dict<any>>
+
+def search#wrapGd(is_fwd: bool): string #{{{2
+    search#setHls()
+    # If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
+    # still not disabled.
+    timer_start(0, {-> search#nohls()})
+    return (is_fwd ? 'gd' : 'gD') .. "\<plug>(ms_custom)"
+enddef
+
+def search#blink() #{{{2
+    BlinkDelete()
+    timer_stop(timer_id)
+    timer_id = timer_start(TICKDELAY, Blink, {repeat: TICKS})
+enddef
+var timer_id: number
+
+def search#index() #{{{2
     # don't make Vim lag when we smash `n` with a slow-to-compute pattern
-    if s:recent_search_was_slow
+    if recent_search_was_slow
         return
     endif
 
@@ -126,7 +184,7 @@ def search#index() #{{{1
     var current: number
     var result: dict<number>
     try
-        result = searchcount({maxcount: s:MAXCOUNT, timeout: s:TIMEOUT})
+        result = searchcount({maxcount: MAXCOUNT, timeout: TIMEOUT})
         current = result.current
         total = result.total
         incomplete = result.incomplete
@@ -144,7 +202,7 @@ def search#index() #{{{1
         # "dancing" when cycling through many matches by smashing `n`
         msg = printf('[%*d/%d] %s', len(total), current, total, pat)
     elseif incomplete == 1 # recomputing took too much time
-        s:recent_search_was_slow = v:true
+        recent_search_was_slow = true
         au SafeState * ++once recent_search_was_slow = false
         msg = printf('[?/??] %s', pat)
     elseif incomplete == 2 # too many matches
@@ -179,262 +237,164 @@ def search#index() #{{{1
     echo msg
 enddef
 
-let s:recent_search_was_slow = v:false
+var recent_search_was_slow = false
 
-fu search#nohls(...) abort "{{{1
-    augroup MySearch | au!
-        au CursorMoved,CursorMovedI * exe 'au! MySearch' | aug! MySearch | set nohls
-        " Necessary when a search fails (`E486`), and we search for another pattern right afterward.{{{
-        "
-        " Otherwise, if there is no cursor  motion between the two searches, and
-        " the second one succeeds, the cursor does not blink.
-        "}}}
-        if a:0
-            au CmdlineEnter * exe 'au! MySearch' | aug! MySearch | set nohls
-        endif
-    augroup END
-endfu
-
-" nohls_on_leave {{{1
-
-" when we do:
-"
-"     c / pattern CR
-"
-" `CR` enables `'hls'`, we need to disable it
-fu search#nohls_on_leave()
-    augroup MySearch | au!
-        au InsertLeave * ++once set nohls
-    augroup END
-    " return an empty string, so that the function doesn't insert anything
-endfu
-
-fu search#restore_cursor_position() abort "{{{1
-    if exists('s:view')
-        call winrestview(s:view)
-        unlet! s:view
+def search#hlsAfterSlash() #{{{2
+    search#toggleHls('restore')
+    # don't enable `'hls'` when this function is called because the command-line
+    # was entered from the rhs of a mapping (especially useful for `/ Up CR C-o`)
+    if getcmdline() == '' || state() =~ 'm'
+        return
     endif
-endfu
+    search#setHls()
+    # Why `v:errmsg...` ?{{{
+    #
+    # Open 2 windows with 2 buffers A and B.
+    # In A, search for a pattern which has a match in B but not in A.
+    # Move the cursor: the highlighting should be disabled in B, but it's not.
+    # This is because Vim stops processing a mapping as soon as an error occurs:
+    #
+    # https://github.com/junegunn/vim-slash/issues/5
+    # `:h map-error`
+    #}}}
+    # Why the timer?{{{
+    #
+    # Because we haven't performed the search yet.
+    # `CmdlineLeave` is fired just before.
+    #}}}
+    #   Why not a one-shot autocmd listening to `SafeState`?{{{
+    #
+    # Too early.  If the match is beyond the current screen, Vim will redraw the
+    # latter, and – in the process – erase the message.
+    #}}}
+    # Do *not* move `feedkeys()` outside the timer!{{{
+    #
+    # It could trigger a hit-enter prompt.
+    #
+    # If you move it outside the timer,  it will be run unconditionally; even if
+    # the search fails.
+    # And sometimes, when we would search for some pattern which is not matched,
+    # Vim could display 2 messages.  One for the pattern, and one for E486:
+    #
+    #     /garbage
+    #     E486: Pattern not found: garbage~
+    #
+    # This causes a hit-enter prompt, which is annoying/distracting.
+    # The fed keys don't even seem to matter.
+    # It's hard to reproduce; probably a weird Vim bug...
+    #
+    # Anyway,   after  a   failed   search,   there  is   no   reason  to   feed
+    # `<plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
+    # print...  It should be fed only if the pattern was found.
+    #}}}
+    timer_start(0, {->
+        v:errmsg[:4] == 'E486:'
+          ? search#nohls(true)
+          : mode() =~ '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
+enddef
 
-fu search#restore_unnamed_register() abort "{{{1
-    " restore unnamed register if we've made it mutate
-    if exists('s:unnamed_reg_save')
-        call setreg('"', s:unnamed_reg_save)
-        unlet! s:unnamed_reg_save
-    endif
-endfu
-
-fu search#set_hls() abort "{{{1
-    " If we don't  remove the autocmd, when  `n` will be typed,  the cursor will
-    " move, and `'hls'` will be disabled.   We want `'hls'` to stay enabled even
-    " after the `n` motion.  Same issue with  the motion after a `/` search (not
-    " the first one; the next ones).  And probably with `gd`, `*`.
-    "
-    " Besides, during the evaluation  of `search#blink()`, `s:blink.tick()` will
-    " be called several times,  but the condition to install a  hl will never be
-    " satisfied (it makes  sure `'hls'` is enabled, to avoid  installing the hl,
-    " if the cursor has just moved).  So, no blinking either.
+def search#setHls() #{{{2
+    # If we don't  remove the autocmd, when  `n` will be typed,  the cursor will
+    # move, and `'hls'` will be disabled.   We want `'hls'` to stay enabled even
+    # after the `n` motion.  Same issue with  the motion after a `/` search (not
+    # the first one; the next ones).  And probably with `gd`, `*`.
+    #
+    # Besides,  during the  evaluation  of `search#blink()`,  `Blink()` will  be
+    # called several  times, but  the condition  to install a  hl will  never be
+    # satisfied (it makes  sure `'hls'` is enabled, to avoid  installing the hl,
+    # if the cursor has just moved).  So, no blinking either.
     sil! au! MySearch
     sil! aug! MySearch
     set hls
-endfu
+enddef
 
-fu s:tick(_) abort dict "{{{1
-"         │
-"         └ when `timer_start()` will call this function, it will send
-"           the timer ID
+def search#nohls(on_CmdlineEnter = false) #{{{2
+    augroup MySearch | au!
+        au CursorMoved,CursorMovedI * exe 'au! MySearch' | aug! MySearch | set nohls
+        # Necessary when a search fails (`E486`), and we search for another pattern right afterward.{{{
+        #
+        # Otherwise, if there is no cursor  motion between the two searches, and
+        # the second one succeeds, the cursor does not blink.
+        #}}}
+        if on_CmdlineEnter
+            au CmdlineEnter * exe 'au! MySearch' | aug! MySearch | set nohls
+        endif
+    augroup END
+enddef
 
-    let self.ticks -= 1
+def search#nohlsOnLeave() #{{{2
+# When we do:
+#
+#     c / pattern CR
+#
+# `CR` enables `'hls'`, we need to disable it
+    augroup MySearch | au!
+        au InsertLeave * ++once set nohls
+    augroup END
+    # return an empty string, so that the function doesn't insert anything
+enddef
 
-    let active = self.ticks > 0
-
-    " What does the next condition do? {{{
-    "
-    " Part1:
-    "
-    " We need the blinking to stop and not go on forever.
-    " 2 solutions:
-    "
-    "    1. use the 'repeat' option of the `timer_start()` function:
-    "
-    "         call timer_start(self.delay, self.tick, {'repeat' : 6})
-    "
-    "    2. decrement a counter every time `blink.tick()` is called
-    "
-    " We'll use the 2nd solution, because by adding the counter to the
-    " dictionary `s:blink`, we have a single object which includes the whole
-    " configuration of the blinking:
-    "
-    "    - how does it blink?                           `s:blink.tick`
-    "    - how many times does it blink?                `s:blink.ticks`
-    "    - how much time does it wait between 2 ticks?  `s:blink.delay`
-    "
-    " It gives us a consistent way to change the configuration of the blinking.
-    "
-    " This explains the `if active` part of the next condition.
-    "
-    " Part2:
-    "
-    " If we move  the cursor right after  the blinking has begun,  we don't want
-    " the blinking  to go on,  because it would follow  our cursor (look  at the
-    " pattern passed to  `matchadd()`).  Although the effect is  only visible if
-    " the delay between 2 ticks is big enough (ex: 500 ms).
-    "
-    " We need to stop the blinking if the cursor moves.
-    " How to detect that the cursor is moving?
-    " We already have an autocmd listening to the `CursorMoved` event.
-    " When our autocmd is fired, `'hls'` is disabled.
-    " So, if `'hls'` is disabled, we should stop the blinking.
-    "
-    " This explains the `if &hls` part of the next condition.
-    "
-    " Part3:
-    "
-    " For a blinking to occur, we need a condition which is satisfied only once
-    " out of twice.
-    " We could use the output of `blink.delete()`  to know whether a hl has just
-    " been deleted.  And in this case, we  could decide to *not* re-install a hl
-    " immediately.  Otherwise, re-install one.
-    "
-    " This explains the `if !self.delete()` part of the next condition.
-    "}}}
-
-    "  (re-)install the hl if:
-    "
-    "  ┌ try to delete the hl, and check we haven't been able to do so
-    "  │ if we have, we don't want to re-install a hl immediately (only next tick)
-    "  │                 ┌ the cursor hasn't moved
-    "  │                 │       ┌ the blinking is still active
-    "  │                 │       │
-    if !self.delete() && &hls && active
-        "                                1 list describing 1 “position”;                ┐
-        "                                 `matchaddpos()` can accept up to 8 positions; │
-        "                                each position can match:                       │
-        "                                                                               │
-        "                                    - a whole line                             │
-        "                                    - a part of a line                         │
-        "                                    - a character                              │
-        "                                                                               │
-        "                                The column index starts from 1,                │
-        "                                like with `col()`.  Not from 0.                │
-        "                                                                               │
-        "                                          ┌────────────────────────────────────┤
-        let w:blink_id = matchaddpos('IncSearch', [[line('.'), max([1, col('.') - 3]), 6]])
-        "                                           │          │                       │
-        "                                           │          │                       └ with a length of 6 bytes
-        "                                           │          └ begin 3 bytes before cursor
-        "                                           └ on the current line
-    endif
-
-    " if the blinking still has ticks to process, recall this function later
-    if active
-        " call `s:blink.tick()` (current function) after `s:blink.delay` ms
-        call timer_start(self.delay, self.tick)
-        "                            │
-        "                            └ we need `self.key` to be evaluated as a key in a dictionary,
-        "                              whose value is a funcref, so don't put quotes around
-    endif
-endfu
-" What does `s:tick()` do? {{{
-"
-" It cycles between installing and removing the highlighting:
-" If the initial numerical value of the variable `s:blink.ticks` is even,
-" here's what happens:
-"
-" ticks = 4   (immediately decremented)
-"         3 → install hl
-"         2 → remove hl (when evaluating `self.delete()`)
-"         1 → install hl
-"         0 → remove hl
-"
-" If it's odd:
-"
-" ticks = 5
-"         4 → install hl
-"         3 → remove hl
-"         2 → install hl
-"         1 → remove hl
-"         0 → don't do anything because inactive
-"
-"}}}
-" Do *not* make this function anonymous!{{{
-"
-" Originally, junegunn wrote this function as an anonymous one:
-"
-"     fu s:blink.tick()
-"         ...
-"     endfu
-"
-" It works,  but debugging an  anonymous function  is hard.  In  particular, our
-" `:WTF` command can't show us the location of the error.
-"
-" For more info: https://github.com/LucHermitte/lh-vim-lib/blob/master/doc/OO.md
-"
-" Instead, we give it a proper name, and at the end of the script, we assign its
-" funcref to `s:blink.tick`.
-"
-" Same remark for `s:delete()`.  Don't make it anonymous.
-"}}}
-
-fu search#toggle_hls(action) abort "{{{1
-    if a:action is# 'save'
-        let s:hls_on = &hls
+def search#toggleHls(action: string) #{{{2
+    if action == 'save'
+        hls_on = &hls
         set hls
-    elseif a:action is# 'restore'
-        if exists('s:hls_on')
-            exe 'set ' .. (s:hls_on ? '' : 'no') .. 'hls'
-            unlet! s:hls_on
+    elseif action == 'restore'
+        if hls_on != -1
+            exe 'set ' .. (hls_on ? '' : 'no') .. 'hls'
+            hls_on = -1
         endif
     endif
-endfu
+enddef
 
-fu search#view() abort "{{{1
-" make a nice view, by opening folds if any, and by restoring the view if
-" it changed but we wanted to stay where we were (happens with `*` & friends)
+var hls_on: number
 
-    let seq = foldclosed('.') != -1 ? 'zMzv' : ''
+def search#view(): string #{{{2
+# make a nice view, by opening folds if any, and by restoring the view if
+# it changed but we wanted to stay where we were (happens with `*` & friends)
 
-    " What are `s:winline` and `s:windiff`? {{{
-    "
-    " `s:winline` exists only if we hit `*`, `#` (visual/normal), `g*` or `g#`.
-    "
-    " Note:
-    "
-    " The goal of `s:windiff` is to restore the state of the window after we
-    " search with `*` & friends.
-    "
-    " When we hit `*`, the rhs is evaluated into the output of `search#wrap_star()`.
-    " During the evaluation, the variable `s:winline` is set.
-    " The result of the evaluation is (broken on 3 lines to make it more
-    " readable):
-    "
-    "     *<plug>(ms_prev)
-    "      <plug>(ms_slash)<plug>(ms_up)<plug>(ms_cr)<plug>(ms_prev)
-    "      <plug>(ms_nohls)<plug>(ms_view)<plug>(ms_blink)<plug>(ms_index)
-    "
-    " What's  important to  understand here,  is that  `view()` is  called AFTER
-    " `search#wrap_star()`.  Therefore, `s:winline` is  not necessarily the same
-    " as the current output of `winline()`, and we can use:
-    "
-    "     winline() - s:winline
-    "
-    " ...  to compute  the number  of times  we have  to hit  `C-e` or  `C-y` to
-    " position the current line  in the window, so that the  state of the window
-    " is restored as it was before we hit `*`.
-    "}}}
+    var seq = foldclosed('.') != -1 ? 'zMzv' : ''
 
-    if exists('s:winline')
-        let windiff = winline() - s:winline
-        unlet! s:winline
+    # What are `winline` and `windiff`? {{{
+    #
+    # `winline` exists only if we hit `*`, `#` (visual/normal), `g*` or `g#`.
+    #
+    # Note:
+    #
+    # The goal of `windiff` is to restore the state of the window after we
+    # search with `*` & friends.
+    #
+    # When we hit `*`, the rhs is evaluated into the output of `search#wrapStar()`.
+    # During the evaluation, the variable `winline` is set.
+    # The result of the evaluation is (broken on 3 lines to make it more
+    # readable):
+    #
+    #     *<plug>(ms_prev)
+    #      <plug>(ms_slash)<plug>(ms_up)<plug>(ms_cr)<plug>(ms_prev)
+    #      <plug>(ms_nohls)<plug>(ms_view)<plug>(ms_blink)<plug>(ms_index)
+    #
+    # What's  important to  understand here,  is that  `view()` is  called AFTER
+    # `search#wrapStar()`.  Therefore, `winline` is  not necessarily the same
+    # as the current output of `winline()`, and we can use:
+    #
+    #     winline() - winline
+    #
+    # ...  to compute  the number  of times  we have  to hit  `C-e` or  `C-y` to
+    # position the current line  in the window, so that the  state of the window
+    # is restored as it was before we hit `*`.
+    #}}}
 
-        " If `windiff` is positive, it means the current line is further away
-        " from the top line of the window, than it was originally.
-        " We have to move the window down to restore the original distance
-        " between current line and top line.
-        " Thus,  we use  `C-e`.  Otherwise,  we use  `C-y`.  Each  time we  must
-        " prefix the key with the right count (± `windiff`).
+    if winline != 0
+        var windiff = winline() - winline
+        winline = 0
 
-        let seq ..= windiff > 0
+        # If `windiff` is positive, it means the current line is further away
+        # from the top line of the window, than it was originally.
+        # We have to move the window down to restore the original distance
+        # between current line and top line.
+        # Thus,  we use  `C-e`.  Otherwise,  we use  `C-y`.  Each  time we  must
+        # prefix the key with the right count (± `windiff`).
+
+        seq ..= windiff > 0
             \ ?     windiff .. "\<c-e>"
             \ : windiff < 0
             \ ?     -windiff .. "\<c-y>"
@@ -442,163 +402,102 @@ fu search#view() abort "{{{1
     endif
 
     return seq
-endfu
+enddef
 
-fu search#wrap_gd(is_fwd) abort "{{{1
-    call search#set_hls()
-    " If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
-    " still not disabled.
-    call timer_start(0, {-> search#nohls()})
-    return (a:is_fwd ? 'gd' : 'gD') .. "\<plug>(ms_custom)"
-endfu
+var winline: number
 
-fu search#wrap_n(is_fwd) abort "{{{1
-    call search#set_hls()
-
-    " We want `n`  and `N` to move  consistently no matter the  direction of the
-    " search `/`, or `?`.  Toggle the key `n`/`N` if necessary.
-    let seq = (a:is_fwd ? 'Nn' : 'nN')[v:searchforward]
-
-    " If  we toggle  the key  (`n` to  `N` or  `N` to  `n`), when  we perform  a
-    " backward search `E223` is raised:
-    "
-    "     E223: recursive mapping~
-    "
-    " Why? Because we are stuck going back and forth between 2 mappings:
-    "
-    "     echo v:searchforward  →  0
-    "
-    "     hit `n`  →  wrap_n() returns `N`  →  returns `n`  →  returns `N`  →  ...
-    "
-    " To prevent being stuck in an endless expansion, use non-recursive versions
-    " of `n` and `N`.
-    let seq = (seq is# 'n' ? "\<plug>(ms_n)" : "\<plug>(ms_N)")
-
-    call timer_start(0, {-> v:errmsg[:4] is# 'E486:' ? search#nohls(1) : ''})
-
-    return seq .. "\<plug>(ms_custom)"
-
-    " Vim doesn't wait for everything to be expanded, before beginning typing.
-    " As soon as it finds something which can't be remapped, it types it.
-    " And `n` can't be remapped, because of `:h recursive_mapping`:
-    "
-    "    > If the {rhs} starts with {lhs}, the first character is not mapped
-    "    > again (this is Vi compatible).
-    "
-    " Therefore, here, Vim  types `n` immediately, *before*  processing the rest
-    " of the mapping.
-    " This explains why Vim *first* moves  the cursor with `n`, *then* makes the
-    " current position blink.
-    " If  Vim expanded  everything before  even beginning  typing, the  blinking
-    " would occur at the current position, instead of the next match.
-endfu
-
-fu search#wrap_star(seq) abort "{{{1
-    let seq = a:seq
-    " Why not just saving the cursor position?{{{
-    "
-    " If the next  match starts on a  column far away, saving  and restoring the
-    " cursor position is not enough.  The view will still be altered.
-    "}}}
-    let s:view = winsaveview()
-    " if  the function  is invoked  from visual  mode, it  will yank  the visual
-    " selection, because  `seq` begins with the  key `y`; in this  case, we save
-    " the unnamed register to restore it later
-    if mode() =~# "^[vV\<c-v>]$"
-        let s:unnamed_reg_save = getreginfo('"')
-        if seq is# '*'
-            " append keys at the end to add some fancy features
-            let seq = "y/\<c-r>\<c-r>=search#escape(1)"
-            "          ││├───────────┘│ {{{
-            "          │││            │
-            "          │││            └ escape unnamed register
-            "          │││
-            "          ││└ insert an expression
-            "          ││  (literally hence why two C-r;
-            "          ││  this matters, e.g., if the selection is "xxx\<c-\>\<c-n>yyy")
-            "          ││
-            "          │└ search for
-            "          │
-            "          └ copy visual selection
-            "}}}
-        elseif seq is# '#'
-            let seq = "y?\<c-r>\<c-r>=search#escape(0)"
-            "                                       │{{{
-            "               direction of the search ┘
-            "
-            " Necessary to  know which  character among  `[/?]` is  special, and
-            " needs to be escaped.
-            "}}}
-        endif
-        let seq ..= "\<plug>(ms_cr)\<plug>(ms_cr)\<plug>(ms_restore_unnamed_register)\<plug>(ms_prev)"
-        "            │             │{{{
-        "            │             └ validate search
-        "            └ validate expression
-        "}}}
+def search#restoreCursorPosition() #{{{2
+    if !empty('view')
+        winrestview(view)
+        view = {}
     endif
+enddef
 
-    " `winline()` returns the position of the  current line from the top line of
-    " the window.  The position / index of the latter is 1.
-    let s:winline = winline()
+def search#restoreRegisters() #{{{2
+# restore unnamed and zero registers if we've made them mutate
+    if !empty(reg_save['"'])
+        setreg('"', reg_save['"'])
+        reg_save['"'] = {}
+    endif
+    if !empty(reg_save['0'])
+        setreg('0', reg_save['0'])
+        reg_save['0'] = {}
+    endif
+enddef
 
-    call search#set_hls()
+def search#escape(is_fwd: bool): string #{{{2
+    var unnamed = getreg('"', true, true)
+    map(unnamed, {_, v -> escape(v, '\' .. (is_fwd ? '/' : '?'))})
+    var pat: string
+    if len(unnamed) == 1
+        pat = unnamed[0]
+    else
+        pat = join(unnamed, '\n')
+    endif
+    return '\V' .. pat
+enddef
+#}}}1
+# Core {{{1
+def Blink(_: any) #{{{2
+#         │
+#         └ timer id
 
-    " Make sure we're not in a weird state if an error is raised.{{{
-    "
-    " If we press `*` on nothing, it raises `E348` or `E349`, and Vim highlights
-    " the last  search pattern.   But because  of the  error, Vim  didn't finish
-    " processing the mapping.  As a result, the highlighting is not cleared when
-    " we move the cursor.  Make sure it is.
-    "
-    " ---
-    "
-    " Same issue if we press `*` while a block is visually selected:
-    "
-    "     " visually select the block `foo` + `bar`, then press `*`
-    "     foo
-    "     bar
-    "     /\Vfoo\nbar~
-    "     E486: Pattern not found: \Vfoo\nbar~
-    "
-    " Now, search  for `foo`: the highlighting  stays active even after  we move
-    " the  cursor (✘).  Press `n`,  then move  the cursor:  the highlighting  is
-    " disabled (✔).  Now, search for `foo` again: the highlighting is not enabled
-    " (✘).
-    "}}}
-    call timer_start(0, {-> v:errmsg[:4] =~# 'E34[89]:\|E486'
-        \ ?   search#nohls()
-        \ :   ''})
+    # What does the next condition do? {{{
+    #
+    # For a blinking to occur, we need a condition which is satisfied only once
+    # out of twice.
+    # We could use the  output of `BlinkDelete()` to know whether  a hl has just
+    # been deleted.  And in this case, we  could decide to *not* re-install a hl
+    # immediately.  Otherwise, re-install one.
+    #
+    # This explains the `if !BlinkDelete()` part of the next condition.
+    #
+    # ---
+    #
+    # If we move  the cursor right after  the blinking has begun,  we don't want
+    # the blinking to  go on, because it would follow  our cursor.  Although the
+    # effect is only visible if the delay between 2 ticks is big enough (ex: 500
+    # ms).
+    #
+    # We need to stop the blinking if the cursor moves.
+    # How to detect that the cursor is moving?
+    # We already have an autocmd listening to the `CursorMoved` event.
+    # When our autocmd is fired, `'hls'` is disabled.
+    # So, if `'hls'` is disabled, we should stop the blinking.
+    #
+    # This explains the `if &hls` part of the next condition.
+    #}}}
+    #  (re-)install the hl if:
+    #
+    #  ┌ try to delete the hl, and check we haven't been able to do so
+    #  │ if we have, we don't want to re-install a hl immediately (only next tick)
+    #  │                 ┌ the cursor hasn't moved
+    #  │                 │
+    if !BlinkDelete() && &hls
+        # 1 list describing 1 “position”.{{{
+        #
+        # `matchaddpos()` can accept up to 8 positions; each position can match:
+        #
+        #    - a whole line
+        #    - a part of a line
+        #    - a character
+        #
+        # The column index starts from 1, like with `col()`.  Not from 0.
+        #}}}
+        var pos = [[line('.'), max([1, col('.') - BLINKWIDTH / 2]), BLINKWIDTH]]
+        w:_blink_id = matchaddpos('IncSearch', pos)
+    endif
+enddef
 
-    " Why `\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)...`?{{{
-    "
-    " By default `*` is stupid, it ignores `'smartcase'`.
-    " To work around this issue, we type this:
-    "
-    "     / Up CR C-o
-    "
-    " It searches for the same pattern than `*` but with `/`.
-    " The latter takes `'smartcase'` into account.
-    "
-    " In visual mode, we already do this, so, it's not necessary from there.
-    " But we let the function do it again anyway, because it doesn't cause any issue.
-    " If it causes an issue, we should test the current mode, and add the
-    " keys on the last 2 lines only from normal mode.
-    "}}}
-    return seq .. (mode() !~# "^[vV\<c-v>]$"
-        \ ? "\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)\<plug>(ms_prev)" : '')
-        \     .. "\<plug>(ms_custom)"
-endfu
-
-" Variables {{{1
-
-" don't let `searchcount()` search more than this number of matches
-const s:MAXCOUNT = 1000
-" don't let `searchcount()` search for more than this duration (in ms)
-const s:TIMEOUT = 500
-
-" `s:blink` must be initialized *after* defining the functions
-" `s:tick()` and `s:delete()`.
-let s:blink = {'ticks': 4, 'delay': 50}
-let s:blink.tick = function('s:tick')
-let s:blink.delete = function('s:delete')
+def BlinkDelete(): bool #{{{2
+# This function has  side effects (it changes  the state of the  buffer), but we
+# also  use it  for its  output.  In  `Blink()`, we  test the  latter to  decide
+# whether we should create a match.
+    if exists('w:_blink_id')
+        matchdelete(w:_blink_id)
+        unlet! w:_blink_id
+        return true
+    endif
+    return false
+enddef
 
