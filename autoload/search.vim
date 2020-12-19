@@ -485,17 +485,20 @@ def Blink(_: any) #{{{2
         # The column index starts from 1, like with `col()`.  Not from 0.
         #}}}
         var pos = [[line('.'), max([1, col('.') - BLINKWIDTH / 2]), BLINKWIDTH]]
-        w:_blink_id = matchaddpos('IncSearch', pos)
+        # remember that you might focus a different window in the middle of a blinking
+        blink_ids = {matchid: matchaddpos('IncSearch', pos), winid: win_getid()}
     endif
 enddef
+
+var blink_ids: dict<number>
 
 def BlinkDelete(): bool #{{{2
 # This function has  side effects (it changes  the state of the  buffer), but we
 # also  use it  for its  output.  In  `Blink()`, we  test the  latter to  decide
 # whether we should create a match.
-    if exists('w:_blink_id')
-        matchdelete(w:_blink_id)
-        unlet! w:_blink_id
+    if blink_ids != {}
+        matchdelete(blink_ids.matchid, blink_ids.winid)
+        blink_ids = {}
         return true
     endif
     return false
