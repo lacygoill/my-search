@@ -497,7 +497,15 @@ def BlinkDelete(): bool #{{{2
 # also  use it  for its  output.  In  `Blink()`, we  test the  latter to  decide
 # whether we should create a match.
     if blink_ids != {}
-        matchdelete(blink_ids.matchid, blink_ids.winid)
+        try
+            matchdelete(blink_ids.matchid, blink_ids.winid)
+        # E957: Invalid window number{{{
+        #
+        # Can happen if  you smash `n`, then right afterward,  close a window in
+        # the middle of a blinking.
+        #}}}
+        catch /^Vim\%((\a\+)\)\=:E957:/
+        endtry
         blink_ids = {}
         return true
     endif
