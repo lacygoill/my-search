@@ -1,9 +1,7 @@
-vim9script
+vim9script noclear
 
-if exists('g:autoloaded_search')
-    finish
-endif
-g:autoloaded_search = 1
+if exists('loaded') | finish | endif
+var loaded = true
 
 # Config {{{1
 
@@ -39,7 +37,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
     # of `n` and `N`.
     seq = (seq == 'n' ? "\<plug>(ms_n)" : "\<plug>(ms_N)")
 
-    timer_start(0, {-> v:errmsg[:4] == 'E486:' ? search#nohls(true) : ''})
+    timer_start(0, () => v:errmsg[: 4] == 'E486:' ? search#nohls(true) : '')
 
     return seq .. "\<plug>(ms_custom)"
 
@@ -131,9 +129,9 @@ def search#wrapStar(argseq: string): string #{{{2
     # disabled (✔).  Now, search for `foo` again: the highlighting is not enabled
     # (✘).
     #}}}
-    timer_start(0, {-> v:errmsg[:4] =~ 'E34[89]:\|E486'
+    timer_start(0, () => v:errmsg[: 4] =~ 'E34[89]:\|E486'
         ?   search#nohls()
-        :   ''})
+        :   '')
 
     # Why `\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)...`?{{{
     #
@@ -162,7 +160,7 @@ def search#wrapGd(is_fwd: bool): string #{{{2
     search#setHls()
     # If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
     # still not disabled.
-    timer_start(0, {-> search#nohls()})
+    timer_start(0, () => search#nohls())
     return (is_fwd ? 'gd' : 'gD') .. "\<plug>(ms_custom)"
 enddef
 
@@ -231,7 +229,7 @@ def search#index() #{{{2
         #                     └ for the middle '...'
         var n1 = n % 2 ? n / 2 : n / 2 - 1
         var n2 = n / 2
-        msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1:2]->join('...')
+        msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1 : 2]->join('...')
     endif
 
     echo msg
@@ -287,10 +285,10 @@ def search#hlsAfterSlash() #{{{2
     # `<plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
     # print...  It should be fed only if the pattern was found.
     #}}}
-    timer_start(0, {->
-        v:errmsg[:4] == 'E486:'
+    timer_start(0, () =>
+        v:errmsg[: 4] == 'E486:'
           ? search#nohls(true)
-          : mode() =~ '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0})
+          : mode() =~ '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0)
 enddef
 
 def search#setHls() #{{{2
@@ -395,10 +393,10 @@ def search#view(): string #{{{2
         # prefix the key with the right count (± `windiff`).
 
         seq ..= windiff > 0
-            \ ?     windiff .. "\<c-e>"
-            \ : windiff < 0
-            \ ?     -windiff .. "\<c-y>"
-            \ :     ''
+            ?     windiff .. "\<c-e>"
+            : windiff < 0
+            ?     -windiff .. "\<c-y>"
+            :     ''
     endif
 
     return seq
@@ -427,7 +425,7 @@ enddef
 
 def search#escape(is_fwd: bool): string #{{{2
     var unnamed = getreg('"', true, true)
-    map(unnamed, {_, v -> escape(v, '\' .. (is_fwd ? '/' : '?'))})
+    map(unnamed, (_, v) => escape(v, '\' .. (is_fwd ? '/' : '?')))
     var pat: string
     if len(unnamed) == 1
         pat = unnamed[0]

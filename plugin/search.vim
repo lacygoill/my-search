@@ -1,9 +1,7 @@
-vim9script
+vim9script noclear
 
-if exists('g:loaded_search')
-    finish
-endif
-g:loaded_search = 1
+if exists('loaded') | finish | endif
+var loaded = true
 
 # TODO: Prevent the plugin from highlighting matches after a search run from operator-pending/visual mode.{{{
 #
@@ -64,8 +62,8 @@ nno <plug>(ms_prev) <cmd>call search#restoreCursorPosition()<cr>
 
 augroup MsCmdwin | au!
     au CmdWinEnter * if getcmdwintype() =~ '[/?]'
-        \ |     nmap <buffer><nowait> <cr> <cr><plug>(ms_index)
-        \ | endif
+        |     nmap <buffer><nowait> <cr> <cr><plug>(ms_index)
+        | endif
 augroup END
 
 nmap <expr><unique> gd search#wrapGd(v:true)
@@ -238,6 +236,6 @@ augroup HoistNoic | au!
     #}}}
     au User MyFlags statusline#hoist('global', '%2*%{!&ic? "[noic]" : ""}', 17,
         \ expand('<sfile>:p') .. ':' .. expand('<sflnum>'))
-    au OptionSet ignorecase timer_start(0, {-> execute('redrawt')})
+    au OptionSet ignorecase timer_start(0, () => execute('redrawt'))
 augroup END
 
