@@ -219,10 +219,10 @@ def search#index() #{{{2
     #    - truncate the end of the 1st half, and the start of the 2nd one
     #    - join the 2 halves with `...` in the middle
     #}}}
-    if strchars(msg, 1) > (v:echospace + (&cmdheight - 1) * &columns)
-    #                      ├─────────┘    ├────────────────────────┘{{{
-    #                      │              └ space available on previous lines of the command-line
-    #                      └ space available on last line of the command-line
+    if strchars(msg, true) > (v:echospace + (&cmdheight - 1) * &columns)
+    #                         ├─────────┘    ├────────────────────────┘{{{
+    #                         │              └ space available on previous lines of the command-line
+    #                         └ space available on last line of the command-line
     #}}}
         var n = v:echospace - 3
         #                     │
@@ -334,7 +334,7 @@ enddef
 
 def search#toggleHls(action: string) #{{{2
     if action == 'save'
-        hls_on = &hls
+        hls_on = &hls ? 1 : 0
         set hls
     elseif action == 'restore'
         if hls_on != -1
