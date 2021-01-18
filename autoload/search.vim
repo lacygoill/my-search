@@ -6,13 +6,13 @@ var loaded = true
 # Config {{{1
 
 # don't let `searchcount()` search more than this number of matches
-const MAXCOUNT = 1000
+const MAXCOUNT: number = 1'000
 # don't let `searchcount()` search for more than this duration (in ms)
-const TIMEOUT = 500
+const TIMEOUT: number = 500
 
-const BLINKWIDTH = 8
-const TICKS = 6
-const TICKDELAY = 50
+const BLINKWIDTH: number = 8
+const TICKS: number = 6
+const TICKDELAY: number = 50
 
 # Interface {{{1
 def search#wrapN(is_fwd: bool): string #{{{2
@@ -20,7 +20,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
 
     # We want `n`  and `N` to move  consistently no matter the  direction of the
     # search `/`, or `?`.  Toggle the key `n`/`N` if necessary.
-    var seq = (is_fwd ? 'Nn' : 'nN')[v:searchforward]
+    var seq: string = (is_fwd ? 'Nn' : 'nN')[v:searchforward]
 
     # If  we toggle  the key  (`n` to  `N` or  `N` to  `n`), when  we perform  a
     # backward search `E223` is raised:
@@ -57,7 +57,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
 enddef
 
 def search#wrapStar(argseq: string): string #{{{2
-    var seq = argseq
+    var seq: string = argseq
     # Why not just saving the cursor position?{{{
     #
     # If the next  match starts on a  column far away, saving  and restoring the
@@ -191,10 +191,10 @@ def search#index() #{{{2
         echohl ErrorMsg | echom v:exception | echohl NONE
         return
     endtry
-    var msg = ''
+    var msg: string = ''
     # we don't want a NUL to be translated into a newline when echo'ed as a string;
     # it would cause an annoying hit-enter prompt
-    var pat = getreg('/')->substitute('\%x00', '^@', 'g')
+    var pat: string = getreg('/')->substitute('\%x00', '^@', 'g')
     if incomplete == 0
         # `printf()`  adds a  padding  of  spaces to  prevent  the pattern  from
         # "dancing" when cycling through many matches by smashing `n`
@@ -224,18 +224,18 @@ def search#index() #{{{2
     #                         │              └ space available on previous lines of the command-line
     #                         └ space available on last line of the command-line
     #}}}
-        var n = v:echospace - 3
-        #                     │
-        #                     └ for the middle '...'
-        var n1 = n % 2 ? n / 2 : n / 2 - 1
-        var n2 = n / 2
+        var n: number = v:echospace - 3
+        #                             │
+        #                             └ for the middle '...'
+        var n1: number = n % 2 ? n / 2 : n / 2 - 1
+        var n2: number = n / 2
         msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1 : 2]->join('...')
     endif
 
     echo msg
 enddef
 
-var recent_search_was_slow = false
+var recent_search_was_slow: bool = false
 
 def search#hlsAfterSlash() #{{{2
     search#toggleHls('restore')
@@ -350,7 +350,7 @@ def search#view(): string #{{{2
 # make a nice view, by opening folds if any, and by restoring the view if
 # it changed but we wanted to stay where we were (happens with `*` & friends)
 
-    var seq = foldclosed('.') != -1 ? 'zMzv' : ''
+    var seq: string = foldclosed('.') != -1 ? 'zMzv' : ''
 
     # What are `winline` and `windiff`? {{{
     #
@@ -382,7 +382,7 @@ def search#view(): string #{{{2
     #}}}
 
     if winline != 0
-        var windiff = winline() - winline
+        var windiff: number = winline() - winline
         winline = 0
 
         # If `windiff` is positive, it means the current line is further away
@@ -424,7 +424,7 @@ def search#restoreRegisters() #{{{2
 enddef
 
 def search#escape(is_fwd: bool): string #{{{2
-    var unnamed = getreg('"', true, true)
+    var unnamed: list<string> = getreg('"', true, true)
     map(unnamed, (_, v) => escape(v, '\' .. (is_fwd ? '/' : '?')))
     var pat: string
     if len(unnamed) == 1
@@ -482,7 +482,10 @@ def Blink(_: any) #{{{2
         #
         # The column index starts from 1, like with `col()`.  Not from 0.
         #}}}
-        var pos = [[line('.'), max([1, col('.') - BLINKWIDTH / 2]), BLINKWIDTH]]
+        var pos: list<list<number>> = [[
+            line('.'), max([1, col('.') - BLINKWIDTH / 2]),
+            +BLINKWIDTH
+            ]]
         # remember that you might focus a different window in the middle of a blinking
         blink_ids = {matchid: matchaddpos('IncSearch', pos), winid: win_getid()}
     endif
