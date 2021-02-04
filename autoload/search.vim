@@ -350,7 +350,7 @@ def search#view(): string #{{{2
 # make a nice view, by opening folds if any, and by restoring the view if
 # it changed but we wanted to stay where we were (happens with `*` & friends)
 
-    var seq: string = foldclosed('.') != -1 ? 'zMzv' : ''
+    var seq: string = foldclosed('.') >= 0 ? 'zMzv' : ''
 
     # What are `winline` and `windiff`? {{{
     #
