@@ -37,7 +37,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
     # of `n` and `N`.
     seq = (seq == 'n' ? "\<plug>(ms_n)" : "\<plug>(ms_N)")
 
-    timer_start(0, () => v:errmsg[: 4] == 'E486:' ? search#nohls(true) : '')
+    timer_start(0, () => v:errmsg[: 4] == 'E486:' && !!search#nohls(true))
 
     return seq .. "\<plug>(ms_custom)"
 
@@ -129,9 +129,7 @@ def search#wrapStar(argseq: string): string #{{{2
     # disabled (✔).  Now, search for `foo` again: the highlighting is not enabled
     # (✘).
     #}}}
-    timer_start(0, () => v:errmsg[: 4] =~ 'E34[89]:\|E486'
-        ?   search#nohls()
-        :   '')
+    timer_start(0, () => v:errmsg[: 4] =~ 'E34[89]:\|E486' && !!search#nohls())
 
     # Why `\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)...`?{{{
     #
@@ -287,8 +285,10 @@ def search#hlsAfterSlash() #{{{2
     #}}}
     timer_start(0, () =>
         v:errmsg[: 4] == 'E486:'
-          ? search#nohls(true)
-          : mode() =~ '[nv]' ? feedkeys("\<plug>(ms_custom)", 'i') : 0)
+          ?     search#nohls(true)
+          : mode() =~ '[nv]'
+          ?     feedkeys("\<plug>(ms_custom)", 'i')
+          : 0)
 enddef
 
 def search#setHls() #{{{2
@@ -425,7 +425,7 @@ enddef
 
 def search#escape(is_fwd: bool): string #{{{2
     var unnamed: list<string> = getreg('"', true, true)
-    map(unnamed, (_, v) => escape(v, '\' .. (is_fwd ? '/' : '?')))
+        ->map((_, v: string): string => escape(v, '\' .. (is_fwd ? '/' : '?')))
     var pat: string
     if len(unnamed) == 1
         pat = unnamed[0]
