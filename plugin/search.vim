@@ -9,7 +9,7 @@ var loaded = true
 # search command-line  has been entered  from visual mode,  and `c` when  it was
 # entered from operator-pending mode.
 #
-# You need to wait for `mode(1)` to be able to return `c/v` and `c/o` (see `:h todo /c\/o`).
+# You need to wait for `mode(true)` to be able to return `c/v` and `c/o` (see `:h todo /c\/o`).
 # More generally,  disable anything fancy  when the search command-line  was not
 # entered from normal mode.
 #}}}

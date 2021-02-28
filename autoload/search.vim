@@ -56,8 +56,8 @@ def search#wrapN(is_fwd: bool): string #{{{2
     # would occur at the current position, instead of the next match.
 enddef
 
-def search#wrapStar(argseq: string): string #{{{2
-    var seq: string = argseq
+def search#wrapStar(arg_seq: string): string #{{{2
+    var seq: string = arg_seq
     # Why not just saving the cursor position?{{{
     #
     # If the next  match starts on a  column far away, saving  and restoring the
