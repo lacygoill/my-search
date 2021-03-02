@@ -288,7 +288,8 @@ def search#hlsAfterSlash() #{{{2
           ?     search#nohls(true)
           : mode() =~ '[nv]'
           ?     feedkeys("\<plug>(ms_custom)", 'i')
-          : 0)
+          : 0
+    )
 enddef
 
 def search#setHls() #{{{2
@@ -436,7 +437,7 @@ def search#escape(is_fwd: bool): string #{{{2
 enddef
 #}}}1
 # Core {{{1
-def Blink(_: any) #{{{2
+def Blink(_a: any) #{{{2
 #         │
 #         └ timer id
 
