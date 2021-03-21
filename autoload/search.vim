@@ -217,10 +217,10 @@ def search#index() #{{{2
     #    - truncate the end of the 1st half, and the start of the 2nd one
     #    - join the 2 halves with `...` in the middle
     #}}}
-    if strchars(msg, true) > (v:echospace + (&cmdheight - 1) * &columns)
-    #                         ├─────────┘    ├────────────────────────┘{{{
-    #                         │              └ space available on previous lines of the command-line
-    #                         └ space available on last line of the command-line
+    if strcharlen(msg) > (v:echospace + (&cmdheight - 1) * &columns)
+    #                     ├─────────┘    ├────────────────────────┘{{{
+    #                     │              └ space available on previous lines of the command-line
+    #                     └ space available on last line of the command-line
     #}}}
         var n: number = v:echospace - 3
         #                             │
