@@ -37,7 +37,11 @@ def search#wrapN(is_fwd: bool): string #{{{2
     # of `n` and `N`.
     seq = (seq == 'n' ? "\<plug>(ms_n)" : "\<plug>(ms_N)")
 
-    timer_start(0, () => v:errmsg[: 4] == 'E486:' && !!search#nohls(true))
+    timer_start(0, (_) => {
+        if v:errmsg[: 4] == 'E486:'
+            search#nohls(true)
+        endif
+    })
 
     return seq .. "\<plug>(ms_custom)"
 
@@ -129,7 +133,11 @@ def search#wrapStar(arg_seq: string): string #{{{2
     # disabled (✔).  Now, search for `foo` again: the highlighting is not enabled
     # (✘).
     #}}}
-    timer_start(0, () => v:errmsg[: 4] =~ 'E34[89]:\|E486' && !!search#nohls())
+    timer_start(0, (_) => {
+        if v:errmsg[: 4] =~ 'E34[89]:\|E486'
+            search#nohls()
+        endif
+    })
 
     # Why `\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)...`?{{{
     #
@@ -158,7 +166,7 @@ def search#wrapGd(is_fwd: bool): string #{{{2
     search#setHls()
     # If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
     # still not disabled.
-    timer_start(0, () => search#nohls())
+    timer_start(0, (_) => search#nohls())
     return (is_fwd ? 'gd' : 'gD') .. "\<plug>(ms_custom)"
 enddef
 
@@ -283,7 +291,7 @@ def search#hlsAfterSlash() #{{{2
     # `<plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
     # print...  It should be fed only if the pattern was found.
     #}}}
-    timer_start(0, () =>
+    timer_start(0, (_) =>
         v:errmsg[: 4] == 'E486:'
           ?     search#nohls(true)
           : mode() =~ '[nv]'
@@ -431,13 +439,13 @@ def search#escape(is_fwd: bool): string #{{{2
     if len(unnamed) == 1
         pat = unnamed[0]
     else
-        pat = join(unnamed, '\n')
+        pat = unnamed->join('\n')
     endif
     return '\V' .. pat
 enddef
 #}}}1
 # Core {{{1
-def Blink(_a: any) #{{{2
+def Blink(_) #{{{2
 #         │
 #         └ timer id
 
@@ -486,7 +494,7 @@ def Blink(_a: any) #{{{2
         var pos: list<list<number>> = [[
             line('.'), max([1, col('.') - BLINKWIDTH / 2]),
             +BLINKWIDTH
-            ]]
+        ]]
         # remember that you might focus a different window in the middle of a blinking
         blink_ids = {matchid: matchaddpos('IncSearch', pos), winid: win_getid()}
     endif

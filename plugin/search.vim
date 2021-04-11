@@ -234,8 +234,7 @@ augroup HoistNoic | au!
     # has many effects;  e.g. when reset, we can't tab  complete custom commands
     # written in lowercase.
     #}}}
-    au User MyFlags statusline#hoist('global', '%2*%{!&ic? "[noic]" : ""}', 17,
+    au User MyFlags statusline#hoist('global', '%2*%{!&ignorecase ? "[noic]" : ""}', 17,
         \ expand('<sfile>:p') .. ':' .. expand('<sflnum>'))
-    au OptionSet ignorecase timer_start(0, () => execute('redrawt'))
 augroup END
 
