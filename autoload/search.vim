@@ -25,7 +25,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
     # If  we toggle  the key  (`n` to  `N` or  `N` to  `n`), when  we perform  a
     # backward search `E223` is raised:
     #
-    #     E223: recursive mapping~
+    #     E223: recursive mapping˜
     #
     # Why? Because we are stuck going back and forth between 2 mappings:
     #
@@ -125,8 +125,8 @@ def search#wrapStar(arg_seq: string): string #{{{2
     #     " visually select the block `foo` + `bar`, then press `*`
     #     foo
     #     bar
-    #     /\Vfoo\nbar~
-    #     E486: Pattern not found: \Vfoo\nbar~
+    #     /\Vfoo\nbar˜
+    #     E486: Pattern not found: \Vfoo\nbar˜
     #
     # Now, search  for `foo`: the highlighting  stays active even after  we move
     # the  cursor (✘).  Press `n`,  then move  the cursor:  the highlighting  is
@@ -281,7 +281,7 @@ def search#hlsAfterSlash() #{{{2
     # Vim could display 2 messages.  One for the pattern, and one for E486:
     #
     #     /garbage
-    #     E486: Pattern not found: garbage~
+    #     E486: Pattern not found: garbage˜
     #
     # This causes a hit-enter prompt, which is annoying/distracting.
     # The fed keys don't even seem to matter.
