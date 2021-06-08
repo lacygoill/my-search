@@ -245,7 +245,7 @@ var recent_search_was_slow: bool = false
 
 def search#hlsAfterSlash() #{{{2
     search#toggleHls('restore')
-    # don't enable `'hls'` when this function is called because the command-line
+    # don't enable `'hlsearch'` when this function is called because the command-line
     # was entered from the rhs of a mapping (especially useful for `/ Up CR C-o`)
     if getcmdline() == '' || state() =~ 'm'
         return
@@ -302,29 +302,29 @@ enddef
 
 def search#setHls() #{{{2
     # If we don't  remove the autocmd, when  `n` will be typed,  the cursor will
-    # move, and `'hls'` will be disabled.   We want `'hls'` to stay enabled even
-    # after the `n` motion.  Same issue with  the motion after a `/` search (not
-    # the first one; the next ones).  And probably with `gd`, `*`.
+    # move, and  `'hlsearch'` will  be disabled.  We  want `'hlsearch'`  to stay
+    # enabled even after the `n` motion.  Same issue with the motion after a `/`
+    # search (not the first one; the next ones).  And probably with `gd`, `*`.
     #
     # Besides,  during the  evaluation  of `search#blink()`,  `Blink()` will  be
     # called several  times, but  the condition  to install a  hl will  never be
-    # satisfied (it makes  sure `'hls'` is enabled, to avoid  installing the hl,
-    # if the cursor has just moved).  So, no blinking either.
+    # satisfied (it makes sure `'hlsearch'`  is enabled, to avoid installing the
+    # hl, if the cursor has just moved).  So, no blinking either.
     sil! au! MySearch
     sil! aug! MySearch
-    set hls
+    &hlsearch = true
 enddef
 
 def search#nohls(on_CmdlineEnter = false) #{{{2
     augroup MySearch | au!
-        au CursorMoved,CursorMovedI * exe 'au! MySearch' | aug! MySearch | set nohls
+        au CursorMoved,CursorMovedI * exe 'au! MySearch' | aug! MySearch | &hlsearch = false
         # Necessary when a search fails (`E486`), and we search for another pattern right afterward.{{{
         #
         # Otherwise, if there is no cursor  motion between the two searches, and
         # the second one succeeds, the cursor does not blink.
         #}}}
         if on_CmdlineEnter
-            au CmdlineEnter * exe 'au! MySearch' | aug! MySearch | set nohls
+            au CmdlineEnter * exe 'au! MySearch' | aug! MySearch | &hlsearch = false
         endif
     augroup END
 enddef
@@ -334,26 +334,26 @@ def search#nohlsOnLeave() #{{{2
 #
 #     c / pattern CR
 #
-# `CR` enables `'hls'`, we need to disable it
+# `CR` enables `'hlsearch'`, we need to disable it
     augroup MySearch | au!
-        au InsertLeave * ++once set nohls
+        au InsertLeave * ++once &hlsearch = false
     augroup END
     # return an empty string, so that the function doesn't insert anything
 enddef
 
 def search#toggleHls(action: string) #{{{2
     if action == 'save'
-        hls_on = &hls ? 1 : 0
-        set hls
+        hlsearch_on = &hlsearch ? 1 : 0
+        &hlsearch = true
     elseif action == 'restore'
-        if hls_on != -1
-            exe 'set ' .. (hls_on ? '' : 'no') .. 'hls'
-            hls_on = -1
+        if hlsearch_on != -1
+            &hlsearch = hlsearch_on ? true : false
+            hlsearch_on = -1
         endif
     endif
 enddef
 
-var hls_on: number
+var hlsearch_on: number
 
 def search#view(): string #{{{2
 # make a nice view, by opening folds if any, and by restoring the view if
@@ -463,16 +463,16 @@ def Blink(_) #{{{2
     #
     # If we move  the cursor right after  the blinking has begun,  we don't want
     # the blinking to  go on, because it would follow  our cursor.  Although the
-    # effect is only visible if the delay between 2 ticks is big enough (ex: 500
-    # ms).
+    # effect  is  only visible  if  the  delay between  2  ticks  is big  enough
+    # (e.g.: 500 ms).
     #
     # We need to stop the blinking if the cursor moves.
     # How to detect that the cursor is moving?
     # We already have an autocmd listening to the `CursorMoved` event.
-    # When our autocmd is fired, `'hls'` is disabled.
-    # So, if `'hls'` is disabled, we should stop the blinking.
+    # When our autocmd is fired, `'hlsearch'` is disabled.
+    # So, if `'hlsearch'` is disabled, we should stop the blinking.
     #
-    # This explains the `if &hls` part of the next condition.
+    # This explains the `if &hlsearch` part of the next condition.
     #}}}
     #  (re-)install the hl if:
     #
@@ -480,7 +480,7 @@ def Blink(_) #{{{2
     #  │ if we have, we don't want to re-install a hl immediately (only next tick)
     #  │                 ┌ the cursor hasn't moved
     #  │                 │
-    if !BlinkDelete() && &hls
+    if !BlinkDelete() && &hlsearch
         # 1 list describing 1 “position”.{{{
         #
         # `matchaddpos()` can accept up to 8 positions; each position can match:

@@ -49,8 +49,8 @@ nno <plug>(ms_prev) <cmd>call search#restoreCursorPosition()<cr>
 # Note:
 # Don't add `<silent>` to the next mapping.
 # When we search for a pattern which has no match in the current buffer,
-# the combination of `set shm+=s` and `<silent>`, would make Vim display the
-# search command, which would cause 2 messages to be displayed + a prompt:
+# the combination of  `set shortmess+=s` and `<silent>`, would  make Vim display
+# the search command, which would cause 2 messages to be displayed + a prompt:
 #
 #     /garbage
 #     E486: Pattern not found: garbage
@@ -123,7 +123,7 @@ nno <plug>(ms_restore_registers) <cmd>call search#restoreRegisters()<cr>
 nno <expr> <plug>(ms_view) search#view()
 nno <plug>(ms_blink) <cmd>call search#blink()<cr>
 nno <plug>(ms_nohls) <cmd>call search#nohls()<cr>
-# Why don't you just remove the `S` flag from `'shm'`?{{{
+# Why don't you just remove the `S` flag from `'shortmess'`?{{{
 #
 # Because of 2 limitations.
 # You can't position the indicator on the command-line (it's at the far right).
@@ -142,12 +142,12 @@ nno <plug>(ms_nohls) <cmd>call search#nohls()<cr>
 # In the case of `*`, you won't see it at all.
 # In the case of `n`, you will see it, but if you enter the command-line
 # and leave it, you won't see the count anymore when pressing `n`.
-# The issue is due to Vim which does not redraw enough when `'lz'` is set.
+# The issue is due to Vim which does not redraw enough when `'lazyredraw'` is set.
 #
 # MWE:
 #
 #     $ vim -Nu <(cat <<'EOF'
-#         set lz
+#         set lazyredraw
 #         nmap n <plug>(a)<plug>(b)
 #         nno <plug>(a) n
 #         nno <plug>(b) <nop>
@@ -158,8 +158,8 @@ nno <plug>(ms_nohls) <cmd>call search#nohls()<cr>
 # move.  In reality,  it does move, but  you don't see it because  the screen is
 # not redrawn enough; press `C-l`, and you should see it has correctly moved.
 #
-# It think that's because  when `'lz'` is set, Vim doesn't  redraw in the middle
-# of a mapping.
+# It think that's because when `'lazyredraw'`  is set, Vim doesn't redraw in the
+# middle of a mapping.
 #
 # In any case, all these issues stem from a lack of control:
 #
@@ -170,7 +170,7 @@ nno <plug>(ms_nohls) <cmd>call search#nohls()<cr>
 nno <plug>(ms_index) <cmd>call search#index()<cr>
 
 # Regroup all customizations behind `<plug>(ms_custom)`
-#                             ┌ install a one-shot autocmd to disable 'hls' when we move
+#                             ┌ install a one-shot autocmd to disable 'hlsearch' when we move
 #                             │               ┌ unfold if needed, restore the view after `*` & friends
 #                             │               │
 nmap <plug>(ms_custom) <plug>(ms_nohls)<plug>(ms_view)<plug>(ms_blink)<plug>(ms_index)
@@ -194,7 +194,7 @@ xno <plug>(ms_custom) <cmd>call search#nohls()<cr>
 #}}}
 # Why don't you disable `<plug>(ms_nohls)`?{{{
 #
-# Because the  search in  `c /pattern  CR` has  enabled `'hls'`,  so we  need to
+# Because the search in `c /pattern CR`  has enabled `'hlsearch'`, so we need to
 # disable it.
 #}}}
 ino <plug>(ms_nohls) <cmd>call search#nohlsOnLeave()<cr>
@@ -205,23 +205,23 @@ ino <plug>(ms_view)  <nop>
 # Options {{{1
 
 # ignore the case when searching for a pattern containing only lowercase characters
-set ignorecase
+&ignorecase = true
 
 # but don't ignore the case if it contains an uppercase character
-set smartcase
+&smartcase = true
 
 # incremental search
-set incsearch
+&incsearch = true
 
 # Autocmds {{{1
 
 augroup HlsAfterSlash | au!
-    # If `'hls'` and `'is'` are set, then *all* matches are highlighted when we're
+    # If `'hlsearch'` and `'is'` are set, then *all* matches are highlighted when we're
     # writing a regex.  Not just the next match.  See `:h 'is`.
-    # So, we make sure `'hls'` is set when we enter a search command-line.
+    # So, we make sure `'hlsearch'` is set when we enter a search command-line.
     au CmdlineEnter /,\? search#toggleHls('save')
 
-    # Restore the state of `'hls'`.
+    # Restore the state of `'hlsearch'`.
     au CmdlineLeave /,\? search#hlsAfterSlash()
 augroup END
 
