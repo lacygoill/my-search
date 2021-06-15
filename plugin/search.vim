@@ -61,7 +61,7 @@ nno <plug>(ms_prev) <cmd>call search#restoreCursorPosition()<cr>
 #     E486: Pattern not found: garbage
 
 augroup MsCmdwin | au!
-    au CmdWinEnter * if getcmdwintype() =~ '[/?]'
+    au CmdwinEnter * if getcmdwintype() =~ '[/?]'
         |     nmap <buffer><nowait> <cr> <cr><plug>(ms_index)
         | endif
 augroup END

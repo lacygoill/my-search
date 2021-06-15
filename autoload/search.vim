@@ -1,8 +1,5 @@
 vim9script noclear
 
-if exists('loaded') | finish | endif
-var loaded = true
-
 # Config {{{1
 
 # don't let `searchcount()` search more than this number of matches
@@ -13,6 +10,16 @@ const TIMEOUT: number = 500
 const BLINKWIDTH: number = 8
 const TICKS: number = 6
 const TICKDELAY: number = 50
+
+# Declarations {{{1
+
+var blink_ids: dict<number>
+var hlsearch_on: number
+var recent_search_was_slow: bool = false
+var reg_save: dict<dict<any>>
+var timer_id: number
+var view: dict<number>
+var winline: number
 
 # Interface {{{1
 def search#wrapN(is_fwd: bool): string #{{{2
@@ -31,7 +38,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
     #
     #     echo v:searchforward  →  0
     #
-    #     hit `n`  →  wrap_n() returns `N`  →  returns `n`  →  returns `N`  →  ...
+    #     hit `n`  →  wrapN() returns `N`  →  returns `n`  →  returns `N`  →  ...
     #
     # To prevent being stuck in an endless expansion, use non-recursive versions
     # of `n` and `N`.
@@ -159,9 +166,6 @@ def search#wrapStar(arg_seq: string): string #{{{2
             .. "\<plug>(ms_custom)"
 enddef
 
-var view: dict<number>
-var reg_save: dict<dict<any>>
-
 def search#wrapGd(is_fwd: bool): string #{{{2
     search#setHls()
     # If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
@@ -175,7 +179,6 @@ def search#blink() #{{{2
     timer_stop(timer_id)
     timer_id = timer_start(TICKDELAY, Blink, {repeat: TICKS})
 enddef
-var timer_id: number
 
 def search#index() #{{{2
     # don't make Vim lag when we smash `n` with a slow-to-compute pattern
@@ -235,13 +238,13 @@ def search#index() #{{{2
         #                             └ for the middle '...'
         var n1: number = n % 2 ? n / 2 : n / 2 - 1
         var n2: number = n / 2
-        msg = matchlist(msg, '\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1 : 2]->join('...')
+        msg = msg
+            ->matchlist('\(.\{' .. n1 .. '}\).*\(.\{' .. n2 .. '}\)')[1 : 2]
+            ->join('...')
     endif
 
     echo msg
 enddef
-
-var recent_search_was_slow: bool = false
 
 def search#hlsAfterSlash() #{{{2
     search#toggleHls('restore')
@@ -338,7 +341,6 @@ def search#nohlsOnLeave() #{{{2
     augroup MySearch | au!
         au InsertLeave * ++once &hlsearch = false
     augroup END
-    # return an empty string, so that the function doesn't insert anything
 enddef
 
 def search#toggleHls(action: string) #{{{2
@@ -352,8 +354,6 @@ def search#toggleHls(action: string) #{{{2
         endif
     endif
 enddef
-
-var hlsearch_on: number
 
 def search#view(): string #{{{2
 # make a nice view, by opening folds if any, and by restoring the view if
@@ -410,8 +410,6 @@ def search#view(): string #{{{2
 
     return seq
 enddef
-
-var winline: number
 
 def search#restoreCursorPosition() #{{{2
     if !empty('view')
@@ -499,8 +497,6 @@ def Blink(_) #{{{2
         blink_ids = {matchid: matchaddpos('IncSearch', pos), winid: win_getid()}
     endif
 enddef
-
-var blink_ids: dict<number>
 
 def BlinkDelete(): bool #{{{2
 # This function has  side effects (it changes  the state of the  buffer), but we
