@@ -83,19 +83,20 @@ def search#wrapStar(arg_seq: string): string #{{{2
         reg_save['0'] = getreginfo('0')
         if seq == '*'
             # append keys at the end to add some fancy features
-            seq = "y/\<c-r>\<c-r>=search#escape(v:true)"
-            #      ││├───────────┘│ {{{
-            #      │││            │
-            #      │││            └ escape unnamed register
-            #      │││
-            #      ││└ insert an expression
-            #      ││  (literally hence why two C-r;
-            #      ││  this matters, e.g., if the selection is "xxx\<c-\>\<c-n>yyy")
-            #      ││
-            #      │└ search for
-            #      │
-            #      └ copy visual selection
-            #}}}
+            seq =
+                # copy visual selection
+                'y'
+                # enter search command-line
+                .. '/'
+                # Insert an expression.{{{
+                #
+                # Literally  hence why  two `C-r`;  this matters,  e.g., if  the
+                # selection is "xxx\<c-\>\<c-n>yyy".
+                #}}}
+                .. "\<c-r>\<c-r>="
+                # escape unnamed register
+                .. "search#escape(v:true)"
+
         elseif seq == '#'
             seq = "y?\<c-r>\<c-r>=search#escape(v:false)"
             #                                   │{{{
@@ -105,11 +106,11 @@ def search#wrapStar(arg_seq: string): string #{{{2
             # needs to be escaped.
             #}}}
         endif
-        seq ..= "\<plug>(ms_cr)\<plug>(ms_cr)\<plug>(ms_restore_registers)\<plug>(ms_prev)"
-        #        │             │{{{
-        #        │             └ validate search
-        #        └ validate expression
-        #}}}
+        # validate expression
+        seq ..= "\<plug>(ms_cr)"
+            .. "\<plug>(ms_cr)"
+            # validate search
+            .. "\<plug>(ms_restore_registers)\<plug>(ms_prev)"
     endif
 
     # `winline()` returns the position of the  current line from the top line of
@@ -129,7 +130,7 @@ def search#wrapStar(arg_seq: string): string #{{{2
     #
     # Same issue if we press `*` while a block is visually selected:
     #
-    #     " visually select the block `foo` + `bar`, then press `*`
+    #     # visually select the block `foo` + `bar`, then press `*`
     #     foo
     #     bar
     #     /\Vfoo\nbar˜
@@ -146,24 +147,26 @@ def search#wrapStar(arg_seq: string): string #{{{2
         endif
     })
 
-    # Why `\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)...`?{{{
-    #
-    # By default `*` is stupid, it ignores `'smartcase'`.
-    # To work around this issue, we type this:
-    #
-    #     / Up CR C-o
-    #
-    # It searches for the same pattern than `*` but with `/`.
-    # The latter takes `'smartcase'` into account.
-    #
-    # In visual mode, we already do this, so, it's not necessary from there.
-    # But we let the function do it again anyway, because it doesn't cause any issue.
-    # If it causes an issue, we should test the current mode, and add the
-    # keys on the last 2 lines only from normal mode.
-    #}}}
-    return seq .. (mode() !~ "^[vV\<c-v>]$"
-        ? "\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)\<plug>(ms_prev)" : '')
-            .. "\<plug>(ms_custom)"
+    return seq .. (
+        mode() !~ "^[vV\<c-v>]$"
+            # Force `*` to honor `'smartcase'`.{{{
+            #
+            # By default `*` is stupid, it ignores `'smartcase'`.
+            # To work around this issue, we type this:
+            #
+            #     / Up CR C-o
+            #
+            # It searches for the same pattern than `*` but with `/`.
+            # The latter takes `'smartcase'` into account.
+            #
+            # In visual mode, we already do this, so, it's not necessary from there.
+            # But we let the function do it again anyway, because it doesn't cause any issue.
+            # If it causes an issue, we should test the current mode, and add the
+            # keys on the last 2 lines only from normal mode.
+            #}}}
+            ? "\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)\<plug>(ms_prev)"
+            : ''
+    ) .. "\<plug>(ms_custom)"
 enddef
 
 def search#wrapGd(is_fwd: bool): string #{{{2
@@ -228,11 +231,13 @@ def search#index() #{{{2
     #    - truncate the end of the 1st half, and the start of the 2nd one
     #    - join the 2 halves with `...` in the middle
     #}}}
-    if strcharlen(msg) > (v:echospace + (&cmdheight - 1) * &columns)
-    #                     ├─────────┘    ├────────────────────────┘{{{
-    #                     │              └ space available on previous lines of the command-line
-    #                     └ space available on last line of the command-line
-    #}}}
+    if strcharlen(msg) > (
+        # space available on last line of the command-line
+        v:echospace
+        # space available on previous lines of the command-line
+        + (&cmdheight - 1) * &columns
+    )
+
         var n: number = v:echospace - 3
         #                             │
         #                             └ for the middle '...'
@@ -254,16 +259,6 @@ def search#hlsAfterSlash() #{{{2
         return
     endif
     search#setHls()
-    # Why `v:errmsg...` ?{{{
-    #
-    # Open 2 windows with 2 buffers A and B.
-    # In A, search for a pattern which has a match in B but not in A.
-    # Move the cursor: the highlighting should be disabled in B, but it's not.
-    # This is because Vim stops processing a mapping as soon as an error occurs:
-    #
-    # https://github.com/junegunn/vim-slash/issues/5
-    # `:h map-error`
-    #}}}
     # Why the timer?{{{
     #
     # Because we haven't performed the search yet.
@@ -274,30 +269,40 @@ def search#hlsAfterSlash() #{{{2
     # Too early.  If the match is beyond the current screen, Vim will redraw the
     # latter, and – in the process – erase the message.
     #}}}
-    # Do *not* move `feedkeys()` outside the timer!{{{
-    #
-    # It could trigger a hit-enter prompt.
-    #
-    # If you move it outside the timer,  it will be run unconditionally; even if
-    # the search fails.
-    # And sometimes, when we would search for some pattern which is not matched,
-    # Vim could display 2 messages.  One for the pattern, and one for E486:
-    #
-    #     /garbage
-    #     E486: Pattern not found: garbage˜
-    #
-    # This causes a hit-enter prompt, which is annoying/distracting.
-    # The fed keys don't even seem to matter.
-    # It's hard to reproduce; probably a weird Vim bug...
-    #
-    # Anyway,   after  a   failed   search,   there  is   no   reason  to   feed
-    # `<plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
-    # print...  It should be fed only if the pattern was found.
-    #}}}
     timer_start(0, (_) =>
+        # Corner Case: `'hlsearch'` is not always disabled.{{{
+        #
+        # Open 2 windows with 2 buffers A and B.
+        # In A, search for a pattern which has a match in B but not in A.
+        # Move the cursor: the highlighting should be disabled in B, but it's not.
+        # This is because Vim stops processing a mapping as soon as an error occurs:
+        #
+        # https://github.com/junegunn/vim-slash/issues/5
+        # `:h map-error`
+        #}}}
         v:errmsg[: 4] == 'E486:'
           ?     search#nohls(true)
           : mode() =~ '[nv]'
+          # Do *not* move `feedkeys()` outside the timer!{{{
+          #
+          # It could trigger a hit-enter prompt.
+          #
+          # If you move it outside the timer,  it will be run unconditionally; even if
+          # the search fails.
+          # And sometimes, when we would search for some pattern which is not matched,
+          # Vim could display 2 messages.  One for the pattern, and one for E486:
+          #
+          #     /garbage
+          #     E486: Pattern not found: garbage˜
+          #
+          # This causes a hit-enter prompt, which is annoying/distracting.
+          # The fed keys don't even seem to matter.
+          # It's hard to reproduce; probably a weird Vim bug...
+          #
+          # Anyway,   after  a   failed   search,   there  is   no   reason  to   feed
+          # `<plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
+          # print...  It should be fed only if the pattern was found.
+          #}}}
           ?     feedkeys("\<plug>(ms_custom)", 'i')
           : 0
     )

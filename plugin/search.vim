@@ -32,9 +32,9 @@ var loaded = true
 # Each time, we use a wrapper in the rhs.
 #
 # Any key returned by a wrapper will be remapped.
-# We want this remapping, but only for `<plug>(...)` keys.
-# For anything else, remapping should be forbidden.
-# So, we  install non-recursive mappings for  various keys we may  return in our
+# This remapping is desired, but only for `<plug>(...)` keys.
+# For anything else, remapping should be disallowed.
+# So, we install non-recursive mappings for  various keys we might return in our
 # wrappers.
 
 cno <plug>(ms_cr)    <cr>
