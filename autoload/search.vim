@@ -42,7 +42,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
     #
     # To prevent being stuck in an endless expansion, use non-recursive versions
     # of `n` and `N`.
-    seq = (seq == 'n' ? "\<plug>(ms_n)" : "\<plug>(ms_N)")
+    seq = (seq == 'n' ? "\<Plug>(ms_n)" : "\<Plug>(ms_N)")
 
     timer_start(0, (_) => {
         if v:errmsg[: 4] == 'E486:'
@@ -50,11 +50,11 @@ def search#wrapN(is_fwd: bool): string #{{{2
         endif
     })
 
-    return seq .. "\<plug>(ms_custom)"
+    return seq .. "\<Plug>(ms_custom)"
 
     # Vim doesn't wait for everything to be expanded, before beginning typing.
     # As soon as it finds something which can't be remapped, it types it.
-    # And `n` can't be remapped, because of `:h recursive_mapping`:
+    # And `n` can't be remapped, because of `:help recursive_mapping`:
     #
     #    > If the {rhs} starts with {lhs}, the first character is not mapped
     #    > again (this is Vi compatible).
@@ -78,7 +78,7 @@ def search#wrapStar(arg_seq: string): string #{{{2
     # if  the function  is invoked  from visual  mode, it  will yank  the visual
     # selection, because  `seq` begins with the  key `y`; in this  case, we save
     # the unnamed register to restore it later
-    if mode() =~ "^[vV\<c-v>]$"
+    if mode() =~ "^[vV\<C-V>]$"
         reg_save['"'] = getreginfo('"')
         reg_save['0'] = getreginfo('0')
         if seq == '*'
@@ -91,14 +91,14 @@ def search#wrapStar(arg_seq: string): string #{{{2
                 # Insert an expression.{{{
                 #
                 # Literally  hence why  two `C-r`;  this matters,  e.g., if  the
-                # selection is "xxx\<c-\>\<c-n>yyy".
+                # selection is "xxx\<C-\>\<C-N>yyy".
                 #}}}
-                .. "\<c-r>\<c-r>="
+                .. "\<C-R>\<C-R>="
                 # escape unnamed register
                 .. "search#escape(v:true)"
 
         elseif seq == '#'
-            seq = "y?\<c-r>\<c-r>=search#escape(v:false)"
+            seq = "y?\<C-R>\<C-R>=search#escape(v:false)"
             #                                   │{{{
             #           direction of the search ┘
             #
@@ -107,10 +107,10 @@ def search#wrapStar(arg_seq: string): string #{{{2
             #}}}
         endif
         # validate expression
-        seq ..= "\<plug>(ms_cr)"
-            .. "\<plug>(ms_cr)"
+        seq ..= "\<Plug>(ms_cr)"
+            .. "\<Plug>(ms_cr)"
             # validate search
-            .. "\<plug>(ms_restore_registers)\<plug>(ms_prev)"
+            .. "\<Plug>(ms_restore_registers)\<Plug>(ms_prev)"
     endif
 
     # `winline()` returns the position of the  current line from the top line of
@@ -148,7 +148,7 @@ def search#wrapStar(arg_seq: string): string #{{{2
     })
 
     return seq .. (
-        mode() !~ "^[vV\<c-v>]$"
+        mode() !~ "^[vV\<C-V>]$"
             # Force `*` to honor `'smartcase'`.{{{
             #
             # By default `*` is stupid, it ignores `'smartcase'`.
@@ -164,9 +164,9 @@ def search#wrapStar(arg_seq: string): string #{{{2
             # If it causes an issue, we should test the current mode, and add the
             # keys on the last 2 lines only from normal mode.
             #}}}
-            ? "\<plug>(ms_slash)\<plug>(ms_up)\<plug>(ms_cr)\<plug>(ms_prev)"
+            ? "\<Plug>(ms_slash)\<Plug>(ms_up)\<Plug>(ms_cr)\<Plug>(ms_prev)"
             : ''
-    ) .. "\<plug>(ms_custom)"
+    ) .. "\<Plug>(ms_custom)"
 enddef
 
 def search#wrapGd(is_fwd: bool): string #{{{2
@@ -174,7 +174,7 @@ def search#wrapGd(is_fwd: bool): string #{{{2
     # If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
     # still not disabled.
     timer_start(0, (_) => search#nohls())
-    return (is_fwd ? 'gd' : 'gD') .. "\<plug>(ms_custom)"
+    return (is_fwd ? 'gd' : 'gD') .. "\<Plug>(ms_custom)"
 enddef
 
 def search#blink() #{{{2
@@ -200,7 +200,7 @@ def search#index() #{{{2
         incomplete = result.incomplete
     # in case the pattern is invalid (`E54`, `E55`, `E871`, ...)
     catch
-        echohl ErrorMsg | echom v:exception | echohl NONE
+        echohl ErrorMsg | echomsg v:exception | echohl NONE
         return
     endtry
     var msg: string = ''
@@ -213,7 +213,7 @@ def search#index() #{{{2
         msg = printf('[%*d/%d] %s', len(total), current, total, pat)
     elseif incomplete == 1 # recomputing took too much time
         recent_search_was_slow = true
-        au SafeState * ++once recent_search_was_slow = false
+        autocmd SafeState * ++once recent_search_was_slow = false
         msg = printf('[?/??] %s', pat)
     elseif incomplete == 2 # too many matches
         if result.total == (result.maxcount + 1) && result.current <= result.maxcount
@@ -278,7 +278,7 @@ def search#hlsAfterSlash() #{{{2
         # This is because Vim stops processing a mapping as soon as an error occurs:
         #
         # https://github.com/junegunn/vim-slash/issues/5
-        # `:h map-error`
+        # `:help map-error`
         #}}}
         v:errmsg[: 4] == 'E486:'
           ?     search#nohls(true)
@@ -300,10 +300,10 @@ def search#hlsAfterSlash() #{{{2
           # It's hard to reproduce; probably a weird Vim bug...
           #
           # Anyway,   after  a   failed   search,   there  is   no   reason  to   feed
-          # `<plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
+          # `<Plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
           # print...  It should be fed only if the pattern was found.
           #}}}
-          ?     feedkeys("\<plug>(ms_custom)", 'i')
+          ?     feedkeys("\<Plug>(ms_custom)", 'i')
           : 0
     )
 enddef
@@ -318,21 +318,25 @@ def search#setHls() #{{{2
     # called several  times, but  the condition  to install a  hl will  never be
     # satisfied (it makes sure `'hlsearch'`  is enabled, to avoid installing the
     # hl, if the cursor has just moved).  So, no blinking either.
-    sil! au! MySearch
-    sil! aug! MySearch
+    silent! autocmd! MySearch
+    silent! augroup! MySearch
     &hlsearch = true
 enddef
 
 def search#nohls(on_CmdlineEnter = false) #{{{2
-    augroup MySearch | au!
-        au CursorMoved,CursorMovedI * exe 'au! MySearch' | aug! MySearch | &hlsearch = false
+    augroup MySearch | autocmd!
+        autocmd CursorMoved,CursorMovedI * execute 'autocmd! MySearch'
+            | augroup! MySearch
+            | &hlsearch = false
         # Necessary when a search fails (`E486`), and we search for another pattern right afterward.{{{
         #
         # Otherwise, if there is no cursor  motion between the two searches, and
         # the second one succeeds, the cursor does not blink.
         #}}}
         if on_CmdlineEnter
-            au CmdlineEnter * exe 'au! MySearch' | aug! MySearch | &hlsearch = false
+            autocmd CmdlineEnter * execute 'autocmd! MySearch'
+                | augroup! MySearch
+                | &hlsearch = false
         endif
     augroup END
 enddef
@@ -343,8 +347,8 @@ def search#nohlsOnLeave() #{{{2
 #     c / pattern CR
 #
 # `CR` enables `'hlsearch'`, we need to disable it
-    augroup MySearch | au!
-        au InsertLeave * ++once &hlsearch = false
+    augroup MySearch | autocmd!
+        autocmd InsertLeave * ++once &hlsearch = false
     augroup END
 enddef
 
@@ -380,9 +384,9 @@ def search#view(): string #{{{2
     # The result of the evaluation is (broken on 3 lines to make it more
     # readable):
     #
-    #     *<plug>(ms_prev)
-    #      <plug>(ms_slash)<plug>(ms_up)<plug>(ms_cr)<plug>(ms_prev)
-    #      <plug>(ms_nohls)<plug>(ms_view)<plug>(ms_blink)<plug>(ms_index)
+    #     *<Plug>(ms_prev)
+    #      <Plug>(ms_slash)<Plug>(ms_up)<Plug>(ms_cr)<Plug>(ms_prev)
+    #      <Plug>(ms_nohls)<Plug>(ms_view)<Plug>(ms_blink)<Plug>(ms_index)
     #
     # What's  important to  understand here,  is that  `view()` is  called AFTER
     # `search#wrapStar()`.  Therefore, `winline` is  not necessarily the same
@@ -407,9 +411,9 @@ def search#view(): string #{{{2
         # prefix the key with the right count (± `windiff`).
 
         seq ..= windiff > 0
-            ?     windiff .. "\<c-e>"
+            ?     windiff .. "\<C-E>"
             : windiff < 0
-            ?     -windiff .. "\<c-y>"
+            ?     -windiff .. "\<C-Y>"
             :     ''
     endif
 
