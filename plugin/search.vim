@@ -37,12 +37,12 @@ var loaded = true
 # So, we install non-recursive mappings for  various keys we might return in our
 # wrappers.
 
-cnoremap <Plug>(ms_cr)    <CR>
-cnoremap <Plug>(ms_up)    <Up>
-nnoremap <Plug>(ms_slash) /
-nnoremap <Plug>(ms_n)     n
-nnoremap <Plug>(ms_N)     N
-nnoremap <Plug>(ms_prev) <Cmd>call search#restoreCursorPosition()<CR>
+cnoremap <Plug>(ms-cr)    <CR>
+cnoremap <Plug>(ms-up)    <Up>
+nnoremap <Plug>(ms-slash) /
+nnoremap <Plug>(ms-n)     n
+nnoremap <Plug>(ms-N)     N
+nnoremap <Plug>(ms-prev) <Cmd>call search#restoreCursorPosition()<CR>
 
 # CR  gd  n {{{2
 
@@ -62,7 +62,7 @@ nnoremap <Plug>(ms_prev) <Cmd>call search#restoreCursorPosition()<CR>
 
 augroup MsCmdwin | autocmd!
     autocmd CmdwinEnter * if getcmdwintype() =~ '[/?]'
-        |     nmap <buffer><nowait> <CR> <CR><Plug>(ms_index)
+        |     nmap <buffer><nowait> <CR> <CR><Plug>(ms-index)
         | endif
 augroup END
 
@@ -85,10 +85,10 @@ nmap <expr><silent><unique> * search#wrapStar('*')
 #                             │
 #                             └ * C-o
 #                               / Up CR C-o
-#                               <Plug>(ms_nohls)
-#                               <Plug>(ms_view)  ⇔  {number} C-e / C-y
-#                               <Plug>(ms_blink)
-#                               <Plug>(ms_index)
+#                               <Plug>(ms-nohls)
+#                               <Plug>(ms-view)  ⇔  {number} C-e / C-y
+#                               <Plug>(ms-blink)
+#                               <Plug>(ms-index)
 
 nmap <expr><silent><unique> #  search#wrapStar('#')
 nmap <expr><silent><unique> g* search#wrapStar('g*')
@@ -115,14 +115,14 @@ xmap <expr><silent><unique> # search#wrapStar('#')
 # This can result in a big visual selection spanning across several windows.
 # Too distracting.
 #}}}
-xmap g* *
+xmap <unique> g* *
 
 # Customizations (blink, index, ...) {{{2
 
-nnoremap <Plug>(ms_restore_registers) <Cmd>call search#restoreRegisters()<CR>
-nnoremap <expr> <Plug>(ms_view) search#view()
-nnoremap <Plug>(ms_blink) <Cmd>call search#blink()<CR>
-nnoremap <Plug>(ms_nohls) <Cmd>call search#nohls()<CR>
+nnoremap <Plug>(ms-restore-registers) <Cmd>call search#restoreRegisters()<CR>
+nnoremap <expr> <Plug>(ms-view) search#view()
+nnoremap <Plug>(ms-blink) <Cmd>call search#blink()<CR>
+nnoremap <Plug>(ms-nohls) <Cmd>call search#nohls()<CR>
 # Why don't you just remove the `S` flag from `'shortmess'`?{{{
 #
 # Because of 2 limitations.
@@ -167,19 +167,19 @@ nnoremap <Plug>(ms_nohls) <Cmd>call search#nohls()<CR>
 #    - we can't control *where* to display the info
 #    - we can't control *when* to display the info
 #}}}
-nnoremap <Plug>(ms_index) <Cmd>call search#index()<CR>
+nnoremap <Plug>(ms-index) <Cmd>call search#index()<CR>
 
-# Regroup all customizations behind `<Plug>(ms_custom)`
+# Regroup all customizations behind `<Plug>(ms-custom)`
 #                             ┌ install a one-shot autocmd to disable 'hlsearch' when we move
 #                             │               ┌ unfold if needed, restore the view after `*` & friends
 #                             │               │
-nmap <Plug>(ms_custom) <Plug>(ms_nohls)<Plug>(ms_view)<Plug>(ms_blink)<Plug>(ms_index)
+nmap <Plug>(ms-custom) <Plug>(ms-nohls)<Plug>(ms-view)<Plug>(ms-blink)<Plug>(ms-index)
 #                                                            │               │
 #                               make the current match blink ┘               │
 #                                            print `[12/34]` kind of message ┘
 
 # We need this mapping for when we leave the search command-line from visual mode.
-xnoremap <Plug>(ms_custom) <Cmd>call search#nohls()<CR>
+xnoremap <Plug>(ms-custom) <Cmd>call search#nohls()<CR>
 
 # Without the next mappings, we face this issue:{{{
 #
@@ -192,15 +192,15 @@ xnoremap <Plug>(ms_custom) <Cmd>call search#nohls()<CR>
 # The problem comes from the wrong assumption that after a `/` search, we are in
 # normal mode.  We could also be in insert mode.
 #}}}
-# Why don't you disable `<Plug>(ms_nohls)`?{{{
+# Why don't you disable `<Plug>(ms-nohls)`?{{{
 #
 # Because the search in `c /pattern CR`  has enabled `'hlsearch'`, so we need to
 # disable it.
 #}}}
-inoremap <Plug>(ms_nohls) <Cmd>call search#nohlsOnLeave()<CR>
-inoremap <Plug>(ms_index) <Nop>
-inoremap <Plug>(ms_blink) <Nop>
-inoremap <Plug>(ms_view)  <Nop>
+inoremap <Plug>(ms-nohls) <Cmd>call search#nohlsOnLeave()<CR>
+inoremap <Plug>(ms-index) <Nop>
+inoremap <Plug>(ms-blink) <Nop>
+inoremap <Plug>(ms-view)  <Nop>
 # }}}1
 # Options {{{1
 

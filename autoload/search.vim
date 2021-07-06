@@ -42,7 +42,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
     #
     # To prevent being stuck in an endless expansion, use non-recursive versions
     # of `n` and `N`.
-    seq = (seq == 'n' ? "\<Plug>(ms_n)" : "\<Plug>(ms_N)")
+    seq = (seq == 'n' ? "\<Plug>(ms-n)" : "\<Plug>(ms-N)")
 
     timer_start(0, (_) => {
         if v:errmsg[: 4] == 'E486:'
@@ -50,7 +50,7 @@ def search#wrapN(is_fwd: bool): string #{{{2
         endif
     })
 
-    return seq .. "\<Plug>(ms_custom)"
+    return seq .. "\<Plug>(ms-custom)"
 
     # Vim doesn't wait for everything to be expanded, before beginning typing.
     # As soon as it finds something which can't be remapped, it types it.
@@ -107,10 +107,10 @@ def search#wrapStar(arg_seq: string): string #{{{2
             #}}}
         endif
         # validate expression
-        seq ..= "\<Plug>(ms_cr)"
-            .. "\<Plug>(ms_cr)"
+        seq ..= "\<Plug>(ms-cr)"
+            .. "\<Plug>(ms-cr)"
             # validate search
-            .. "\<Plug>(ms_restore_registers)\<Plug>(ms_prev)"
+            .. "\<Plug>(ms-restore-registers)\<Plug>(ms-prev)"
     endif
 
     # `winline()` returns the position of the  current line from the top line of
@@ -164,9 +164,9 @@ def search#wrapStar(arg_seq: string): string #{{{2
             # If it causes an issue, we should test the current mode, and add the
             # keys on the last 2 lines only from normal mode.
             #}}}
-            ? "\<Plug>(ms_slash)\<Plug>(ms_up)\<Plug>(ms_cr)\<Plug>(ms_prev)"
+            ? "\<Plug>(ms-slash)\<Plug>(ms-up)\<Plug>(ms-cr)\<Plug>(ms-prev)"
             : ''
-    ) .. "\<Plug>(ms_custom)"
+    ) .. "\<Plug>(ms-custom)"
 enddef
 
 def search#wrapGd(is_fwd: bool): string #{{{2
@@ -174,7 +174,7 @@ def search#wrapGd(is_fwd: bool): string #{{{2
     # If we press `gd`  on the 1st occurrence of a  keyword, the highlighting is
     # still not disabled.
     timer_start(0, (_) => search#nohls())
-    return (is_fwd ? 'gd' : 'gD') .. "\<Plug>(ms_custom)"
+    return (is_fwd ? 'gd' : 'gD') .. "\<Plug>(ms-custom)"
 enddef
 
 def search#blink() #{{{2
@@ -300,10 +300,10 @@ def search#hlsAfterSlash() #{{{2
           # It's hard to reproduce; probably a weird Vim bug...
           #
           # Anyway,   after  a   failed   search,   there  is   no   reason  to   feed
-          # `<Plug>(ms_custom)`;  there  is no  cursor  to  make  blink, no  index  to
+          # `<Plug>(ms-custom)`;  there  is no  cursor  to  make  blink, no  index  to
           # print...  It should be fed only if the pattern was found.
           #}}}
-          ?     feedkeys("\<Plug>(ms_custom)", 'i')
+          ?     feedkeys("\<Plug>(ms-custom)", 'i')
           : 0
     )
 enddef
@@ -384,9 +384,9 @@ def search#view(): string #{{{2
     # The result of the evaluation is (broken on 3 lines to make it more
     # readable):
     #
-    #     *<Plug>(ms_prev)
-    #      <Plug>(ms_slash)<Plug>(ms_up)<Plug>(ms_cr)<Plug>(ms_prev)
-    #      <Plug>(ms_nohls)<Plug>(ms_view)<Plug>(ms_blink)<Plug>(ms_index)
+    #     *<Plug>(ms-prev)
+    #      <Plug>(ms-slash)<Plug>(ms-up)<Plug>(ms-cr)<Plug>(ms-prev)
+    #      <Plug>(ms-nohls)<Plug>(ms-view)<Plug>(ms-blink)<Plug>(ms-index)
     #
     # What's  important to  understand here,  is that  `view()` is  called AFTER
     # `search#wrapStar()`.  Therefore, `winline` is  not necessarily the same
@@ -441,7 +441,7 @@ enddef
 
 def search#escape(is_fwd: bool): string #{{{2
     var unnamed: list<string> = getreg('"', true, true)
-        ->map((_, v: string): string => escape(v, '\' .. (is_fwd ? '/' : '?')))
+        ->map((_, v: string) => v->escape('\' .. (is_fwd ? '/' : '?')))
     var pat: string
     if len(unnamed) == 1
         pat = unnamed[0]
